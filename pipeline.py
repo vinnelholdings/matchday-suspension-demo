@@ -71,16 +71,6 @@ def _call_llm_json(client, system, user):
     except Exception:
         return None
 
-
-def _get_client():
-    from openai import OpenAI
-
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is not set")
-    return OpenAI(api_key=api_key)
-
-
 # ---------- retrieval from eval store ----------
 
 def load_eval_cases(path="eval_cases.json"):
