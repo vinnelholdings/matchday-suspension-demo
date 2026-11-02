@@ -430,4 +430,4 @@ def run_pipeline(reports, handbook_path="discipline.json", client=None,
         "retrieval_enabled": embedding_model is not None,
         "eval_cases_used": len(eval_cases),
     }
-    return {"stage": stage, "final": final, "audit": audit}
+    return {"stage": stage, "final": final, "audit": audit, "facts": facts}
