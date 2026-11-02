@@ -250,13 +250,33 @@ def load_eval_cases(path="eval_cases.json"):
     return data if isinstance(data, list) else []
 
 
+# Embedding model cache: loaded once per process, not once per run.
+# Streamlit reruns app.py top-to-bottom on every interaction, but imported
+# modules persist, so this singleton survives reruns. Without it, torch +
+# the model reload on every Run click -- slow, and repeated allocation
+# on a ~1GB Streamlit Cloud free instance.
+# Note: this fixes reload cost, not peak memory. The model still loads
+# in full on the first range case; if that alone OOMs, retrieval fails
+# gracefully (see retrieve_top_k) rather than crashing the pipeline.
+_MODEL_CACHE = {"model": None, "util": None, "failed": False}
+
+
 def _get_embedding_model():
-    """Lazy-load sentence-transformers. Returns (model, util) or (None, None)."""
+    """Lazy-load sentence-transformers, cached. Returns (model, util) or (None, None)."""
+    if _MODEL_CACHE["model"] is not None:
+        return _MODEL_CACHE["model"], _MODEL_CACHE["util"]
+    if _MODEL_CACHE["failed"]:
+        return None, None
     try:
         from sentence_transformers import SentenceTransformer, util
 
-        return SentenceTransformer("all-MiniLM-L6-v2"), util
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        _MODEL_CACHE["model"] = model
+        _MODEL_CACHE["util"] = util
+        return model, util
     except Exception:
+        # Remember the failure so we don't retry (and re-pay) every run.
+        _MODEL_CACHE["failed"] = True
         return None, None
 
 
