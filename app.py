@@ -8,9 +8,6 @@ from pipeline import add_to_session_eval, approve, load_eval_cases, run_pipeline
 # --- OpenAI key from Streamlit secrets, never from the repo ---
 # Locally: .streamlit/secrets.toml with OPENAI_API_KEY = "..."
 # Cloud: Manage app -> Settings -> Secrets, same line
-if "OPENAI_API_KEY" in st.secrets:
-    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
-
 st.set_page_config(page_title="Matchday Suspension Demo", layout="wide")
 st.title("Matchday Suspension Demo")
 st.caption(
