@@ -10,7 +10,6 @@ plus any session cases added in this tab. Session-only: new tab resets.
 No real cases, no real names — demo input is synthetic only.
 """
 
-import hashlib
 import json
 import os
 import time
@@ -62,7 +61,7 @@ def _get_client():
     return OpenAI(api_key=api_key)
 
 
-# ---------- NEW: retrieval from eval store ----------
+# ---------- retrieval from eval store ----------
 
 def load_eval_cases(path="eval_cases.json"):
     """Load preloaded synthetic eval cases. Returns [] if missing."""
@@ -84,6 +83,33 @@ def _get_embedding_model():
         return SentenceTransformer("all-MiniLM-L6-v2"), util
     except Exception:
         return None, None
+
+
+def add_to_session_eval(session_cases, stage_row, fact, final_games=None, final_reason=None, approved_by=None):
+    """Add a human-approved case to the session eval store.
+    This is the training loop for v1, session-only.
+    Returns the new eval case dict, and appends it to session_cases in place.
+    No database — final games + final reason are the gold standard."""
+    final = approve(
+        stage_row, fact,
+        final_games=final_games,
+        final_reason=final_reason,
+        approved_by=approved_by,
+    )
+    new_case = {
+        "case_id": f"SESSION-{len(session_cases) + 1:03d}",
+        "section": "Session - Human approved",
+        "misconduct_code": stage_row["misconduct_code"],
+        "min_games": stage_row["min_games"],
+        "max_games": stage_row["max_games"],
+        "player_name": fact.get("player_name"),
+        "team_name": fact.get("team_name"),
+        "action": fact.get("action"),
+        "expected_games": final["final_games"],
+        "expected_reason": final["final_reason"],
+    }
+    session_cases.append(new_case)
+    return new_case
 
 
 def retrieve_top_k(new_action, cases, code, k=3, exclude_case_id=None, model=None, util=None):
@@ -275,12 +301,10 @@ def build_final_summary(fact, stage_row):
 
 # ---------- human approval ----------
 
-def approve(stage_row, fact, final_games=None, final_reason=None, approved_by=None, thumbs=None):
+def approve(stage_row, fact, final_games=None, final_reason=None, approved_by=None):
     """Human approval. If a human overrides, the human reason replaces
     the LLM reason as the official record. Deterministic cases need
-    no human approval; range cases do.
-    thumbs: 'up' / 'down' / None — recorded on the session log entry,
-    not on the preloaded case itself."""
+    no human approval; range cases do."""
     if final_games is None:
         final_games = stage_row["recommended_games"]
         status = "approved"
@@ -294,7 +318,6 @@ def approve(stage_row, fact, final_games=None, final_reason=None, approved_by=No
         "final_reason": final_reason or stage_row["recommended_reason"],
         "approved_by": approved_by,
         "status": status,
-        "thumbs": thumbs,
         "final_summary": build_final_summary(fact, stage_row),
     }
 
@@ -383,7 +406,6 @@ def run_pipeline(reports, handbook_path="discipline.json", client=None,
                 "final_reason": None,
                 "approved_by": None,
                 "status": "pending",
-                "thumbs": None,
                 "final_summary": build_final_summary(fact, row)
                 if row["recommended_games"] is not None
                 else row["recommended_reason"],
@@ -391,9 +413,6 @@ def run_pipeline(reports, handbook_path="discipline.json", client=None,
         )
 
     audit = {
-        "input_hash": hashlib.sha256(
-            json.dumps(reports, sort_keys=True).encode()
-        ).hexdigest(),
         "model": os.environ.get("OPENAI_MODEL", "gpt-5"),
         "rule_version": 1,
         "latency_seconds": round(time.time() - start, 2),
