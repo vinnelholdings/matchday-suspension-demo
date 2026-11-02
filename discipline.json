@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "source": "discipline_rules (handbook rules only, no case data)",
+  "rules": [
+    {
+      "misconduct_code": "2CT",
+      "description": "SECOND CAUTION IN THE SAME MATCH",
+      "min_games": 1,
+      "max_games": 1,
+      "handbook_section": "14.2 / 14.6 / 14.7",
+      "handbook_text": "Two cautions given to the same player in one game are an automatic 1 game suspension. A red card carries an automatic and minimum one game suspension."
+    },
+    {
+      "misconduct_code": "DH",
+      "description": "DENYING OPPONENT GOAL/GOAL-SCORING OPPORTUNITY BY HANDLING",
+      "min_games": 1,
+      "max_games": 1,
+      "handbook_section": "14.2 / 14.6 / 14.7",
+      "handbook_text": "DOGSO is an automatic 1 game suspension. A red card carries an automatic and minimum one game suspension."
+    },
+    {
+      "misconduct_code": "DF",
+      "description": "DOGSO BY OFFENSE PUNISHABLE BY FK/PK",
+      "min_games": 1,
+      "max_games": 1,
+      "handbook_section": "14.2 / 14.6 / 14.7",
+      "handbook_text": "DOGSO is an automatic 1 game suspension. A red card carries an automatic and minimum one game suspension."
+    },
+    {
+      "misconduct_code": "OL",
+      "description": "OFFENSIVE/INSULTING/ABUSIVE LANGUAGE AND/OR GESTURES",
+      "min_games": 1,
+      "max_games": 2,
+      "handbook_section": "14.7",
+      "handbook_text": "Offensive Language: 1-2 games."
+    },
+    {
+      "misconduct_code": "SFP",
+      "description": "SERIOUS FOUL PLAY",
+      "min_games": 1,
+      "max_games": 3,
+      "handbook_section": "14.7",
+      "handbook_text": "Serious Foul Play: 1-3 games."
+    },
+    {
+      "misconduct_code": "VC",
+      "description": "VIOLENT CONDUCT",
+      "min_games": 2,
+      "max_games": 4,
+      "handbook_section": "14.7",
+      "handbook_text": "Violent Conduct: Headbutt, Elbow, Stamping, Biting, Striking, Kicking Opponent: 2-4 games."
+    },
+    {
+      "misconduct_code": "S",
+      "description": "SPITTING",
+      "min_games": 4,
+      "max_games": 4,
+      "handbook_section": "14.7",
+      "handbook_text": "Spitting: 4 games."
+    }
+  ]
+}
