@@ -14,7 +14,7 @@
       "report": "Synthetic report: Received a first caution for dissent, then a second caution for delaying the restart, and was shown a red card for a second caution in the same match. Sent off.",
       "action": "Received a first caution for dissent, then a second caution for delaying the restart, and was shown a red card for a second caution in the same match.",
       "expected_games": 1,
-      "expected_reason": "Automatic suspension per handbook."
+      "expected_reason": "Second caution in the same match, first for dissent and then for delaying the restart, so the handbook automatic 1 game applies."
     },
     {
       "case_id": "SYN-002",
@@ -28,7 +28,7 @@
       "report": "Synthetic report: Received a first caution for persistent infringement, then a second caution for unsporting behavior, and was dismissed for a second caution in the same match. Sent off.",
       "action": "Received a first caution for persistent infringement, then a second caution for unsporting behavior, and was dismissed for a second caution in the same match.",
       "expected_games": 1,
-      "expected_reason": "Automatic suspension per handbook."
+      "expected_reason": "Second caution in the same match, persistent infringement followed by unsporting behaviour, so the handbook automatic 1 game applies."
     },
     {
       "case_id": "SYN-003",
@@ -42,7 +42,7 @@
       "report": "Synthetic report: Cautioned for delaying the restart, then cautioned again for dissent, and was sent off for a second caution in the same match. Sent off.",
       "action": "Cautioned for delaying the restart, then cautioned again for dissent, and was sent off for a second caution in the same match.",
       "expected_games": 1,
-      "expected_reason": "Automatic suspension per handbook."
+      "expected_reason": "Cautioned for delaying the restart, then cautioned again for dissent, so the second caution in the same match carries the handbook automatic 1 game."
     },
     {
       "case_id": "SYN-004",
@@ -56,7 +56,7 @@
       "report": "Synthetic report: Deliberately handled the ball on the goal line to deny an opponent a goal-scoring opportunity. Sent off.",
       "action": "Deliberately handled the ball on the goal line to deny an opponent a goal-scoring opportunity.",
       "expected_games": 1,
-      "expected_reason": "Automatic suspension per handbook."
+      "expected_reason": "Deliberate hand on the goal line to deny a goal, a goal-scoring opportunity denied by handling, so the handbook automatic 1 game applies."
     },
     {
       "case_id": "SYN-005",
@@ -70,7 +70,7 @@
       "report": "Synthetic report: Used a hand to block a shot heading into the goal, denying an opponent a goal-scoring opportunity by handling. Sent off.",
       "action": "Used a hand to block a shot heading into the goal, denying an opponent a goal-scoring opportunity by handling.",
       "expected_games": 1,
-      "expected_reason": "Automatic suspension per handbook."
+      "expected_reason": "Hand used to block a shot heading into the goal, denying a goal-scoring opportunity by handling, so the handbook automatic 1 game applies."
     },
     {
       "case_id": "SYN-006",
@@ -84,7 +84,7 @@
       "report": "Synthetic report: Handled a cross on the goal line that would otherwise have gone in, denying a goal by handling. Sent off.",
       "action": "Handled a cross on the goal line that would otherwise have gone in, denying a goal by handling.",
       "expected_games": 1,
-      "expected_reason": "Automatic suspension per handbook."
+      "expected_reason": "Handled a cross on the goal line that would otherwise have gone in, denying a goal by handling, so the handbook automatic 1 game applies."
     },
     {
       "case_id": "SYN-007",
@@ -98,7 +98,7 @@
       "report": "Synthetic report: Tripped an attacker who was clear through on goal, denying a goal-scoring opportunity by an offense punishable by a free kick. Sent off.",
       "action": "Tripped an attacker who was clear through on goal, denying a goal-scoring opportunity by an offense punishable by a free kick.",
       "expected_games": 1,
-      "expected_reason": "Automatic suspension per handbook."
+      "expected_reason": "Tripped an attacker clear through on goal, denying a goal-scoring opportunity by an offence punishable by a free kick, so the handbook automatic 1 game applies."
     },
     {
       "case_id": "SYN-008",
@@ -112,7 +112,7 @@
       "report": "Synthetic report: Pulled back an attacker breaking through on goal with no covering defender, denying a goal-scoring opportunity by a foul. Sent off.",
       "action": "Pulled back an attacker breaking through on goal with no covering defender, denying a goal-scoring opportunity by a foul.",
       "expected_games": 1,
-      "expected_reason": "Automatic suspension per handbook."
+      "expected_reason": "Pulled back an attacker breaking through on goal with no covering defender, denying a goal-scoring opportunity by a foul, so the handbook automatic 1 game applies."
     },
     {
       "case_id": "SYN-009",
@@ -126,7 +126,7 @@
       "report": "Synthetic report: Spat at an opponent from close range during a stoppage in play. Sent off.",
       "action": "Spat at an opponent from close range during a stoppage in play.",
       "expected_games": 4,
-      "expected_reason": "Automatic suspension per handbook."
+      "expected_reason": "Spitting at an opponent from close range during a stoppage is at the top end of misconduct, and the handbook range for spitting is fixed at 4 games."
     },
     {
       "case_id": "SYN-010",
@@ -140,7 +140,7 @@
       "report": "Synthetic report: Spat toward an opponent's face during an argument after a foul. Sent off.",
       "action": "Spat toward an opponent's face during an argument after a foul.",
       "expected_games": 4,
-      "expected_reason": "Automatic suspension per handbook."
+      "expected_reason": "Spitting toward an opponent's face during an argument after a foul, and the handbook range for spitting is fixed at 4 games."
     },
     {
       "case_id": "SYN-011",
@@ -154,7 +154,7 @@
       "report": "Synthetic report: Pushed an opponent in the chest off the ball after a throw-in, with no strike and no injury described. Sent off for violent conduct.",
       "action": "Pushed an opponent in the chest off the ball after a throw-in, with no strike and no injury described.",
       "expected_games": 2,
-      "expected_reason": "The act was a deliberate push off the ball, but there is no strike to a vulnerable area and no injury described, so the minimum of 2 games is appropriate."
+      "expected_reason": "A deliberate push to the chest off the ball, but with no strike and no injury described, so the minimum of 2 games is appropriate."
     },
     {
       "case_id": "SYN-012",
@@ -168,7 +168,7 @@
       "report": "Synthetic report: Shoved an opponent with both hands during a confrontation, opponent stayed on feet, no injury described. Sent off for violent conduct.",
       "action": "Shoved an opponent with both hands during a confrontation, opponent stayed on feet, no injury described.",
       "expected_games": 2,
-      "expected_reason": "The act was a deliberate push off the ball, but there is no strike to a vulnerable area and no injury described, so the minimum of 2 games is appropriate."
+      "expected_reason": "A two-handed shove during a confrontation, but the opponent stayed on their feet and no injury is described, so the minimum of 2 games is appropriate."
     },
     {
       "case_id": "SYN-013",
@@ -182,7 +182,7 @@
       "report": "Synthetic report: Grabbed an opponent's shirt and pushed them away from the ball, with no punch, kick, or injury described. Sent off for violent conduct.",
       "action": "Grabbed an opponent's shirt and pushed them away from the ball, with no punch, kick, or injury described.",
       "expected_games": 2,
-      "expected_reason": "The act was a deliberate push off the ball, but there is no strike to a vulnerable area and no injury described, so the minimum of 2 games is appropriate."
+      "expected_reason": "Grabbing a shirt and pushing an opponent away from the ball, with no punch, kick, or injury described, is low-level violent conduct, so the minimum of 2 games is appropriate."
     },
     {
       "case_id": "SYN-014",
@@ -196,7 +196,7 @@
       "report": "Synthetic report: Deliberately barged into an opponent off the ball, opponent stumbled but continued, no injury described. Sent off for violent conduct.",
       "action": "Deliberately barged into an opponent off the ball, opponent stumbled but continued, no injury described.",
       "expected_games": 2,
-      "expected_reason": "The act was a deliberate push off the ball, but there is no strike to a vulnerable area and no injury described, so the minimum of 2 games is appropriate."
+      "expected_reason": "A deliberate barge off the ball where the opponent stumbled but continued, with no injury described, so the minimum of 2 games is appropriate."
     },
     {
       "case_id": "SYN-015",
@@ -210,7 +210,7 @@
       "report": "Synthetic report: Pushed an opponent in the back after the whistle, with no strike to the face and no treatment described. Sent off for violent conduct.",
       "action": "Pushed an opponent in the back after the whistle, with no strike to the face and no treatment described.",
       "expected_games": 2,
-      "expected_reason": "The act was a deliberate push off the ball, but there is no strike to a vulnerable area and no injury described, so the minimum of 2 games is appropriate."
+      "expected_reason": "A push in the back after the whistle, with no strike to the face and no treatment described, is deliberate but low-level, so the minimum of 2 games is appropriate."
     },
     {
       "case_id": "SYN-016",
@@ -224,7 +224,7 @@
       "report": "Synthetic report: Swung an arm away from play and made forceful contact with an opponent's shoulder, opponent fell, with no face contact and no injury described. Sent off for violent conduct.",
       "action": "Swung an arm away from play and made forceful contact with an opponent's shoulder, opponent fell, with no face contact and no injury described.",
       "expected_games": 3,
-      "expected_reason": "The act was deliberate and forceful, which increases severity, but without contact to the face or injury described, a 3-game suspension fits."
+      "expected_reason": "An arm swung away from play with forceful contact to the shoulder, knocking the opponent down, is more than a push, but with no face contact and no injury described, 3 games fits."
     },
     {
       "case_id": "SYN-017",
@@ -238,7 +238,7 @@
       "report": "Synthetic report: Kicked out at an opponent after losing possession, contact to the leg, opponent limped briefly then continued. Sent off for violent conduct.",
       "action": "Kicked out at an opponent after losing possession, contact to the leg, opponent limped briefly then continued.",
       "expected_games": 3,
-      "expected_reason": "The act was deliberate and forceful, which increases severity, but without contact to the face or injury described, a 3-game suspension fits."
+      "expected_reason": "A kick out at an opponent after losing possession, contact to the leg, with the opponent limping briefly then continuing, is deliberate but limited in outcome, so 3 games fits."
     },
     {
       "case_id": "SYN-018",
@@ -252,7 +252,7 @@
       "report": "Synthetic report: Struck an opponent in the chest with a forearm during a confrontation, forceful, with no face contact and no injury described. Sent off for violent conduct.",
       "action": "Struck an opponent in the chest with a forearm during a confrontation, forceful, with no face contact and no injury described.",
       "expected_games": 3,
-      "expected_reason": "The act was deliberate and forceful, which increases severity, but without contact to the face or injury described, a 3-game suspension fits."
+      "expected_reason": "A forceful forearm strike to the chest in a confrontation is a strike, but with no face contact and no injury described, it stops short of the maximum, so 3 games fits."
     },
     {
       "case_id": "SYN-019",
@@ -266,7 +266,7 @@
       "report": "Synthetic report: Elbowed an opponent in the side while challenging for a header, opponent went down but got up, no treatment described. Sent off for violent conduct.",
       "action": "Elbowed an opponent in the side while challenging for a header, opponent went down but got up, no treatment described.",
       "expected_games": 3,
-      "expected_reason": "The act was deliberate and forceful, which increases severity, but without contact to the face or injury described, a 3-game suspension fits."
+      "expected_reason": "An elbow to the side while challenging for a header is aggravating, but the opponent got up and no treatment is described, so 3 games fits."
     },
     {
       "case_id": "SYN-020",
@@ -280,7 +280,7 @@
       "report": "Synthetic report: Stamped on an opponent's foot off the ball, opponent reacted in pain but continued, no injury described. Sent off for violent conduct.",
       "action": "Stamped on an opponent's foot off the ball, opponent reacted in pain but continued, no injury described.",
       "expected_games": 3,
-      "expected_reason": "The act was deliberate and forceful, which increases severity, but without contact to the face or injury described, a 3-game suspension fits."
+      "expected_reason": "A stamp on the foot off the ball, with the opponent reacting in pain but continuing and no injury described, is deliberate but limited, so 3 games fits."
     },
     {
       "case_id": "SYN-021",
@@ -294,7 +294,7 @@
       "report": "Synthetic report: Threw a punch that glanced an opponent's shoulder away from play, forceful and deliberate, with no face contact and no injury described. Sent off for violent conduct.",
       "action": "Threw a punch that glanced an opponent's shoulder away from play, forceful and deliberate, with no face contact and no injury described.",
       "expected_games": 3,
-      "expected_reason": "The act was deliberate and forceful, which increases severity, but without contact to the face or injury described, a 3-game suspension fits."
+      "expected_reason": "A punch that glanced the shoulder away from play is forceful and deliberate, but glancing contact to the shoulder with no face contact and no injury described keeps it from the maximum, so 3 games fits."
     },
     {
       "case_id": "SYN-022",
@@ -308,7 +308,7 @@
       "report": "Synthetic report: Threw a closed-fist punch to an opponent's face away from play, opponent required treatment for a cut nose. Sent off for violent conduct.",
       "action": "Threw a closed-fist punch to an opponent's face away from play, opponent required treatment for a cut nose.",
       "expected_games": 4,
-      "expected_reason": "The player threw a deliberate strike to a vulnerable area with injury and treatment described, so 4 games is justified."
+      "expected_reason": "A closed-fist punch to the face away from play, with the opponent requiring treatment for a cut nose, is a strike to a vulnerable area with injury, so 4 games is justified."
     },
     {
       "case_id": "SYN-023",
@@ -322,7 +322,7 @@
       "report": "Synthetic report: Headbutted an opponent in the face during a stoppage, opponent fell and needed treatment. Sent off for violent conduct.",
       "action": "Headbutted an opponent in the face during a stoppage, opponent fell and needed treatment.",
       "expected_games": 4,
-      "expected_reason": "The player threw a deliberate strike to a vulnerable area with injury and treatment described, so 4 games is justified."
+      "expected_reason": "A headbutt to the face during a stoppage, with the opponent falling and needing treatment, is a deliberate strike to a vulnerable area with a clear outcome, so 4 games is justified."
     },
     {
       "case_id": "SYN-024",
@@ -336,7 +336,7 @@
       "report": "Synthetic report: Stamped forcefully on an opponent's ankle while the opponent was on the ground, opponent could not continue and needed treatment. Sent off for violent conduct.",
       "action": "Stamped forcefully on an opponent's ankle while the opponent was on the ground, opponent could not continue and needed treatment.",
       "expected_games": 4,
-      "expected_reason": "The player threw a deliberate strike to a vulnerable area with injury and treatment described, so 4 games is justified."
+      "expected_reason": "A forceful stamp on the ankle while the opponent was on the ground, with the opponent unable to continue and needing treatment, combines a vulnerable area, a defenceless opponent, and a serious outcome, so 4 games is justified."
     },
     {
       "case_id": "SYN-025",
@@ -350,7 +350,7 @@
       "report": "Synthetic report: Kicked an opponent in the face while the opponent was on the ground, deliberate and retaliatory, opponent required treatment. Sent off for violent conduct.",
       "action": "Kicked an opponent in the face while the opponent was on the ground, deliberate and retaliatory, opponent required treatment.",
       "expected_games": 4,
-      "expected_reason": "The player threw a deliberate strike to a vulnerable area with injury and treatment described, so 4 games is justified."
+      "expected_reason": "A kick to the face while the opponent was on the ground, deliberate and retaliatory, with treatment required, is at the top end on act, target, and outcome, so 4 games is justified."
     },
     {
       "case_id": "SYN-026",
@@ -364,7 +364,7 @@
       "report": "Synthetic report: Repeatedly struck an opponent with punches after the whistle, opponent sustained a facial injury and needed treatment. Sent off for violent conduct.",
       "action": "Repeatedly struck an opponent with punches after the whistle, opponent sustained a facial injury and needed treatment.",
       "expected_games": 4,
-      "expected_reason": "The player threw a deliberate strike to a vulnerable area with injury and treatment described, so 4 games is justified."
+      "expected_reason": "Repeated punches after the whistle, with a facial injury and treatment required, combines repetition, a vulnerable area, and injury, so 4 games is justified."
     },
     {
       "case_id": "SYN-027",
@@ -378,7 +378,7 @@
       "report": "Synthetic report: Made a late tackle from behind, contact to the lower leg, opponent stayed down briefly then continued, no injury described. Sent off for serious foul play.",
       "action": "Made a late tackle from behind, contact to the lower leg, opponent stayed down briefly then continued, no injury described.",
       "expected_games": 1,
-      "expected_reason": "The challenge was reckless, but with low force and no injury described, the minimum of 1 game is appropriate."
+      "expected_reason": "A late tackle from behind with contact to the lower leg, where the opponent stayed down briefly then continued and no injury is described, is reckless but low in force and outcome, so the minimum of 1 game is appropriate."
     },
     {
       "case_id": "SYN-028",
@@ -392,7 +392,7 @@
       "report": "Synthetic report: Slid in recklessly for a loose ball, caught the opponent's ankle lightly, opponent continued without treatment. Sent off for serious foul play.",
       "action": "Slid in recklessly for a loose ball, caught the opponent's ankle lightly, opponent continued without treatment.",
       "expected_games": 1,
-      "expected_reason": "The challenge was reckless, but with low force and no injury described, the minimum of 1 game is appropriate."
+      "expected_reason": "A reckless slide where the ankle was caught lightly and the opponent continued without treatment is reckless but light in contact and outcome, so the minimum of 1 game is appropriate."
     },
     {
       "case_id": "SYN-029",
@@ -406,7 +406,7 @@
       "report": "Synthetic report: Challenged with excessive force but low contact, opponent stumbled and continued, no danger to knee or ankle described. Sent off for serious foul play.",
       "action": "Challenged with excessive force but low contact, opponent stumbled and continued, no danger to knee or ankle described.",
       "expected_games": 1,
-      "expected_reason": "The challenge was reckless, but with low force and no injury described, the minimum of 1 game is appropriate."
+      "expected_reason": "A challenge with excessive force but low contact, where the opponent stumbled and continued and no danger to knee or ankle is described, is at the low end, so the minimum of 1 game is appropriate."
     },
     {
       "case_id": "SYN-030",
@@ -420,7 +420,7 @@
       "report": "Synthetic report: Tackled through the ball and caught the opponent's shin with a glancing blow, opponent continued, no treatment described. Sent off for serious foul play.",
       "action": "Tackled through the ball and caught the opponent's shin with a glancing blow, opponent continued, no treatment described.",
       "expected_games": 1,
-      "expected_reason": "The challenge was reckless, but with low force and no injury described, the minimum of 1 game is appropriate."
+      "expected_reason": "A tackle through the ball that caught the shin with a glancing blow, with the opponent continuing and no treatment described, is at the low end, so the minimum of 1 game is appropriate."
     },
     {
       "case_id": "SYN-031",
@@ -434,7 +434,7 @@
       "report": "Synthetic report: Jumped into a challenge with a raised foot, contact was minimal and opponent continued, no injury described. Sent off for serious foul play.",
       "action": "Jumped into a challenge with a raised foot, contact was minimal and opponent continued, no injury described.",
       "expected_games": 1,
-      "expected_reason": "The challenge was reckless, but with low force and no injury described, the minimum of 1 game is appropriate."
+      "expected_reason": "A jumped challenge with a raised foot is a danger signal, but contact was minimal, the opponent continued, and no injury is described, so the minimum of 1 game is appropriate."
     },
     {
       "case_id": "SYN-032",
@@ -448,7 +448,7 @@
       "report": "Synthetic report: Lunged with exposed studs into an opponent's shin, opponent fell in pain but continued after treatment on the field. Sent off for serious foul play.",
       "action": "Lunged with exposed studs into an opponent's shin, opponent fell in pain but continued after treatment on the field.",
       "expected_games": 2,
-      "expected_reason": "The challenge involved exposed studs and clear danger to safety, which increases severity, but the opponent continued, so a 2-game suspension fits."
+      "expected_reason": "A lunge with exposed studs into the shin, with the opponent falling in pain but continuing after on-field treatment, has clear danger but a limited outcome, so 2 games fits."
     },
     {
       "case_id": "SYN-033",
@@ -462,7 +462,7 @@
       "report": "Synthetic report: Made a high, uncontrolled challenge with studs to the ankle, opponent limped for several minutes then continued. Sent off for serious foul play.",
       "action": "Made a high, uncontrolled challenge with studs to the ankle, opponent limped for several minutes then continued.",
       "expected_games": 2,
-      "expected_reason": "The challenge involved exposed studs and clear danger to safety, which increases severity, but the opponent continued, so a 2-game suspension fits."
+      "expected_reason": "A high, uncontrolled challenge with studs to the ankle, where the opponent limped for several minutes then continued, has clear danger but the opponent stayed in the match, so 2 games fits."
     },
     {
       "case_id": "SYN-034",
@@ -476,7 +476,7 @@
       "report": "Synthetic report: Tackled with excessive force and exposed studs to the lower leg, creating clear danger, opponent continued after a stoppage. Sent off for serious foul play.",
       "action": "Tackled with excessive force and exposed studs to the lower leg, creating clear danger, opponent continued after a stoppage.",
       "expected_games": 2,
-      "expected_reason": "The challenge involved exposed studs and clear danger to safety, which increases severity, but the opponent continued, so a 2-game suspension fits."
+      "expected_reason": "A tackle with excessive force and exposed studs to the lower leg creates clear danger, but the opponent continued after a stoppage, so 2 games fits."
     },
     {
       "case_id": "SYN-035",
@@ -490,7 +490,7 @@
       "report": "Synthetic report: Slid in from the side with studs up into the opponent's calf, opponent went down but returned to play. Sent off for serious foul play.",
       "action": "Slid in from the side with studs up into the opponent's calf, opponent went down but returned to play.",
       "expected_games": 2,
-      "expected_reason": "The challenge involved exposed studs and clear danger to safety, which increases severity, but the opponent continued, so a 2-game suspension fits."
+      "expected_reason": "A slide from the side with studs up into the calf is dangerous, but the opponent went down and then returned to play, so 2 games fits."
     },
     {
       "case_id": "SYN-036",
@@ -504,7 +504,7 @@
       "report": "Synthetic report: Challenged dangerously with a lunging tackle to the knee area, opponent was in pain but did not leave the match. Sent off for serious foul play.",
       "action": "Challenged dangerously with a lunging tackle to the knee area, opponent was in pain but did not leave the match.",
       "expected_games": 2,
-      "expected_reason": "The challenge involved exposed studs and clear danger to safety, which increases severity, but the opponent continued, so a 2-game suspension fits."
+      "expected_reason": "A lunging tackle to the knee area is aggravating because of where it lands, but the opponent was in pain and did not leave the match, so 2 games fits."
     },
     {
       "case_id": "SYN-037",
@@ -518,7 +518,7 @@
       "report": "Synthetic report: Lunged with exposed studs into an opponent's knee, opponent could not continue and left the field for treatment. Sent off for serious foul play.",
       "action": "Lunged with exposed studs into an opponent's knee, opponent could not continue and left the field for treatment.",
       "expected_games": 3,
-      "expected_reason": "The tackle involved exposed studs into the knee, creating clear danger to safety, and the opponent could not continue, so 3 games is justified."
+      "expected_reason": "A lunge with exposed studs into the knee, where the opponent could not continue and left the field for treatment, combines a vulnerable area, studs, and a serious outcome, so 3 games is justified."
     },
     {
       "case_id": "SYN-038",
@@ -532,7 +532,7 @@
       "report": "Synthetic report: Tackled with excessive force, studs into the ankle, opponent sustained an ankle injury and could not continue. Sent off for serious foul play.",
       "action": "Tackled with excessive force, studs into the ankle, opponent sustained an ankle injury and could not continue.",
       "expected_games": 3,
-      "expected_reason": "The tackle involved exposed studs into the knee, creating clear danger to safety, and the opponent could not continue, so 3 games is justified."
+      "expected_reason": "A tackle with excessive force, studs into the ankle, where the opponent sustained an ankle injury and could not continue, combines danger and a match-ending outcome, so 3 games is justified."
     },
     {
       "case_id": "SYN-039",
@@ -546,7 +546,7 @@
       "report": "Synthetic report: Made a dangerous, uncontrolled lunge with studs to the shin, opponent was injured and substituted immediately. Sent off for serious foul play.",
       "action": "Made a dangerous, uncontrolled lunge with studs to the shin, opponent was injured and substituted immediately.",
       "expected_games": 3,
-      "expected_reason": "The tackle involved exposed studs into the knee, creating clear danger to safety, and the opponent could not continue, so 3 games is justified."
+      "expected_reason": "A dangerous, uncontrolled lunge with studs to the shin, where the opponent was injured and substituted immediately, combines danger, studs, and a match-ending outcome, so 3 games is justified."
     },
     {
       "case_id": "SYN-040",
@@ -560,7 +560,7 @@
       "report": "Synthetic report: Challenged with a high, forceful tackle, studs into the knee, opponent could not continue and needed medical attention. Sent off for serious foul play.",
       "action": "Challenged with a high, forceful tackle, studs into the knee, opponent could not continue and needed medical attention.",
       "expected_games": 3,
-      "expected_reason": "The tackle involved exposed studs into the knee, creating clear danger to safety, and the opponent could not continue, so 3 games is justified."
+      "expected_reason": "A high, forceful tackle with studs into the knee, where the opponent could not continue and needed medical attention, is at the top end on force, target, and outcome, so 3 games is justified."
     },
     {
       "case_id": "SYN-041",
@@ -574,7 +574,7 @@
       "report": "Synthetic report: Shouted \"fuck you\" at an opponent after a foul, one outburst, then walked away. No threat, no repetition described. Sent off for offensive language.",
       "action": "Shouted \"fuck you\" at an opponent after a foul, one outburst, then walked away, with no threat and no repetition described.",
       "expected_games": 1,
-      "expected_reason": "The abuse was a single general insult with no threat, repetition, or discriminatory language described, so the minimum of 1 game is appropriate."
+      "expected_reason": "A single \"fuck you\" shouted at an opponent after a foul, with the player then walking away and no threat or repetition described, is a single general insult, so the minimum of 1 game is appropriate."
     },
     {
       "case_id": "SYN-042",
@@ -588,7 +588,7 @@
       "report": "Synthetic report: Directed profanity at the referee after a decision, shouting \"fuck you, that was shit\", one outburst, then stopped. No threat described. Sent off for offensive language.",
       "action": "Directed profanity at the referee after a decision, shouting \"fuck you, that was shit\", one outburst, then stopped, with no threat described.",
       "expected_games": 1,
-      "expected_reason": "The abuse was a single general insult with no threat, repetition, or discriminatory language described, so the minimum of 1 game is appropriate."
+      "expected_reason": "A single outburst of profanity directed at the referee after a decision, then stopped, with no threat described, is a single general insult, so the minimum of 1 game is appropriate."
     },
     {
       "case_id": "SYN-043",
@@ -602,7 +602,7 @@
       "report": "Synthetic report: Called an opponent \"you garbage human\" in a single heated moment, no threat, no discriminatory language described. Sent off for offensive language.",
       "action": "Called an opponent \"you garbage human\" in a single heated moment, with no threat and no discriminatory language described.",
       "expected_games": 1,
-      "expected_reason": "The abuse was a single general insult with no threat, repetition, or discriminatory language described, so the minimum of 1 game is appropriate."
+      "expected_reason": "Calling an opponent \"you garbage human\" in a single heated moment, with no threat and no discriminatory language described, is a single general insult, so the minimum of 1 game is appropriate."
     },
     {
       "case_id": "SYN-044",
@@ -616,7 +616,7 @@
       "report": "Synthetic report: Swore at an opponent after losing possession, saying \"you're a fucking loser\", a single insult, then play resumed. No repetition described. Sent off for offensive language.",
       "action": "Swore at an opponent after losing possession, saying \"you're a fucking loser\", a single insult, then play resumed, with no repetition described.",
       "expected_games": 1,
-      "expected_reason": "The abuse was a single general insult with no threat, repetition, or discriminatory language described, so the minimum of 1 game is appropriate."
+      "expected_reason": "A single insult, \"you're a fucking loser\", after losing possession, with play then resuming and no repetition described, is a single general insult, so the minimum of 1 game is appropriate."
     },
     {
       "case_id": "SYN-045",
@@ -630,7 +630,7 @@
       "report": "Synthetic report: Used profanity toward an opponent in frustration after a missed call, saying \"fuck you, your mom is a bitch\", one outburst, no threat and no gestures described. Sent off for offensive language.",
       "action": "Used profanity toward an opponent in frustration after a missed call, saying \"fuck you, your mom is a bitch\", one outburst, with no threat and no gestures described.",
       "expected_games": 1,
-      "expected_reason": "The abuse was a single general insult with no threat, repetition, or discriminatory language described, so the minimum of 1 game is appropriate."
+      "expected_reason": "A single frustrated outburst, \"fuck you, your mom is a bitch\", after a missed call, with no threat and no gestures described, is strong profanity but a single general insult, so the minimum of 1 game is appropriate."
     },
     {
       "case_id": "SYN-046",
@@ -644,7 +644,7 @@
       "report": "Synthetic report: Threatened an opponent after the whistle, saying \"I'll hurt you after the game, just wait\", directed and threatening. Sent off for offensive language.",
       "action": "Threatened an opponent after the whistle, saying \"I'll hurt you after the game, just wait\", directed and threatening.",
       "expected_games": 2,
-      "expected_reason": "The abuse was threatening, repeated, or discriminatory, which increases severity beyond a single general insult, so 2 games is justified."
+      "expected_reason": "A direct threat after the whistle, \"I'll hurt you after the game, just wait\", goes beyond a general insult into threatening language, so 2 games is justified."
     },
     {
       "case_id": "SYN-047",
@@ -658,7 +658,7 @@
       "report": "Synthetic report: Threatened the referee, saying \"you'll face consequences after the match\", repeated and directed at the official. Sent off for offensive language.",
       "action": "Threatened the referee, saying \"you'll face consequences after the match\", repeated and directed at the official.",
       "expected_games": 2,
-      "expected_reason": "The abuse was threatening, repeated, or discriminatory, which increases severity beyond a single general insult, so 2 games is justified."
+      "expected_reason": "A threat to the referee, \"you'll face consequences after the match\", repeated and directed at the official, goes beyond a single insult, so 2 games is justified."
     },
     {
       "case_id": "SYN-048",
@@ -672,7 +672,7 @@
       "report": "Synthetic report: Repeatedly abused an opponent with profanity and gestures in front of the crowd over several minutes, shouting \"fuck you\" repeatedly, highly public and repeated. Sent off for offensive language.",
       "action": "Repeatedly abused an opponent with profanity and gestures in front of the crowd over several minutes, shouting \"fuck you\" repeatedly, highly public and repeated.",
       "expected_games": 2,
-      "expected_reason": "The abuse was threatening, repeated, or discriminatory, which increases severity beyond a single general insult, so 2 games is justified."
+      "expected_reason": "Repeated profanity and gestures in front of the crowd over several minutes, shouting \"fuck you\" repeatedly, combines repetition and a public setting, so 2 games is justified."
     },
     {
       "case_id": "SYN-049",
@@ -686,7 +686,7 @@
       "report": "Synthetic report: Directed repeated offensive gestures and profanity at an opponent in front of spectators, shouting \"fuck off\" repeatedly, continuing after being warned. Sent off for offensive language.",
       "action": "Directed repeated offensive gestures and profanity at an opponent in front of spectators, shouting \"fuck off\" repeatedly, continuing after being warned.",
       "expected_games": 2,
-      "expected_reason": "The abuse was threatening, repeated, or discriminatory, which increases severity beyond a single general insult, so 2 games is justified."
+      "expected_reason": "Repeated offensive gestures and profanity in front of spectators, shouting \"fuck off\" repeatedly and continuing after being warned, combines repetition, a public setting, and ignoring a warning, so 2 games is justified."
     },
     {
       "case_id": "SYN-050",
@@ -700,7 +700,7 @@
       "report": "Synthetic report: Used discriminatory and degrading language directed at an opponent, which is more severe than general profanity. Exact slur not quoted in this synthetic case. Sent off for offensive language.",
       "action": "Used discriminatory and degrading language directed at an opponent, which is more severe than general profanity.",
       "expected_games": 2,
-      "expected_reason": "The abuse was threatening, repeated, or discriminatory, which increases severity beyond a single general insult, so 2 games is justified."
+      "expected_reason": "Discriminatory and degrading language directed at an opponent is more severe than general profanity, so 2 games is justified."
     }
   ]
 }
