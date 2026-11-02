@@ -17,6 +17,26 @@ from pathlib import Path
 
 from prompts import CALL_1_SYSTEM, CALL_1_USER, CALL_2_SYSTEM, CALL_2_USER
 
+def _get_client():
+    from openai import OpenAI
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        # Streamlit only: secrets are in st.secrets, not os.environ,
+        # so pick them up here if env is empty.
+        # Wrapped in try/except, so local runs without Streamlit still work.
+        try:
+            import streamlit as st
+
+            api_key = st.secrets.get("OPENAI_API_KEY")
+        except Exception:
+            api_key = None
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not set")
+    return OpenAI(api_key=api_key)
+
+
+
 AUTOMATIC_CODES = {"2CT", "DH", "DF", "S"}
 
 
