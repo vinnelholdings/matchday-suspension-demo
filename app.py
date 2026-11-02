@@ -1,162 +1,232 @@
+"""Matchday suspension demo -- Streamlit frontend.
+
+Adapted from the Matchday interface I built, rebuilt in Streamlit
+for this demo. Fines removed. Synthetic cases only.
+
+Decision support only: the pipeline recommends, a human decides.
+Session-only: user-approved cases help retrieval in this tab only.
+A new tab resets to the preloaded cases.
+"""
+
 import json
-import os
 
 import streamlit as st
 
-from pipeline import add_to_session_eval, approve, load_eval_cases, run_pipeline
+from pipeline import (
+    PipelineError,
+    add_to_session_eval,
+    load_eval_cases,
+    run_pipeline,
+)
 
-# --- OpenAI key from Streamlit secrets, never from the repo ---
-# Locally: .streamlit/secrets.toml with OPENAI_API_KEY = "..."
-# Cloud: Manage app -> Settings -> Secrets, same line
-st.set_page_config(page_title="Matchday Suspension Demo", layout="wide")
+st.set_page_config(page_title="Matchday Suspension Demo", layout="centered")
 st.title("Matchday Suspension Demo")
 st.caption(
-    "Decision support only — a human decides. "
-    "Adapted from the Matchday assignor suspensions page, rebuilt in Streamlit. "
-    "Fines removed. Synthetic data only, no real cases."
+    "Decision support only -- the pipeline recommends, a human decides. "
+    "Adapted from the Matchday interface I built, rebuilt in Streamlit. "
+    "Fines removed. Synthetic cases only."
 )
 
-# --- session eval store: 50 preloaded + session additions, new tab resets ---
+# ---------------------------------------------------------------------------
+# Session state
+# ---------------------------------------------------------------------------
+
 if "session_cases" not in st.session_state:
     st.session_state.session_cases = []
-if "last_result" not in st.session_state:
+if "report_input" not in st.session_state:
+    st.session_state.report_input = ""
+if "run_id" not in st.session_state:
+    st.session_state.run_id = 0
+
+preloaded_cases = load_eval_cases()
+preloaded_count = len(preloaded_cases)
+added_count = len(st.session_state.session_cases)
+
+# ---------------------------------------------------------------------------
+# Sidebar: session eval store
+# ---------------------------------------------------------------------------
+
+st.sidebar.header("Session eval store")
+st.sidebar.write(f"Preloaded cases: {preloaded_count}")
+st.sidebar.write(f"Added this session: {added_count}")
+st.sidebar.write(f"Total available for retrieval: {preloaded_count + added_count}")
+if st.sidebar.button("Reset session"):
+    st.session_state.session_cases = []
     st.session_state.last_result = None
-if "report_text" not in st.session_state:
-    st.session_state.report_text = ""
+    st.rerun()
 
-preloaded = load_eval_cases("eval_cases.json")
-total_eval = len(preloaded) + len(st.session_state.session_cases)
+# ---------------------------------------------------------------------------
+# Example reports
+# ---------------------------------------------------------------------------
 
-with st.sidebar:
-    st.header("Session eval store")
-    st.write(f"Preloaded: {len(preloaded)}")
-    st.write(f"Added this session: {len(st.session_state.session_cases)}")
-    st.write(f"Total for retrieval: {total_eval}")
-    st.caption("New tab resets to the 50 preloaded cases.")
-    if st.button("Reset session"):
-        st.session_state.session_cases = []
-        st.session_state.last_result = None
-        st.rerun()
+EXAMPLES = {
+    "SYN-001 (2CT)": (
+        "Received a first caution for dissent, then a second caution for "
+        "delaying the restart, and was shown a red card for a second "
+        "caution in the same match. Sent off."
+    ),
+    "SYN-009 (S)": (
+        "Spat at an opponent from close range during a stoppage in play. "
+        "Sent off."
+    ),
+    "SYN-011 (VC)": (
+        "Pushed an opponent in the chest off the ball after a throw-in, "
+        "with no strike and no injury described. Sent off for violent conduct."
+    ),
+    "SYN-027 (SFP)": (
+        "Made a late tackle from behind, contact to the lower leg, opponent "
+        "stayed down briefly then continued, no injury described. "
+        "Sent off for serious foul play."
+    ),
+    "SYN-041 (OL)": (
+        'Shouted "fuck you" at an opponent after a foul, one outburst, '
+        "then walked away. No threat, no repetition described. "
+        "Sent off for offensive language."
+    ),
+    "SYN-046 (OL)": (
+        'Threatened an opponent after the whistle, saying "I\'ll hurt you '
+        'after the game, just wait", directed and threatening. '
+        "Sent off for offensive language."
+    ),
+}
 
-# --- example chips: copy a case, edit it, run it ---
-st.subheader("Try an example, or enter your own suspension")
-examples = [
-    c for c in preloaded
-    if c["case_id"] in ("SYN-011", "SYN-027", "SYN-041", "SYN-046", "SYN-001", "SYN-009")
-]
-cols = st.columns(len(examples))
-for col, ex in zip(cols, examples):
-    with col:
-        if st.button(f"{ex['misconduct_code']} · {ex['case_id']}", key=ex["case_id"]):
-            st.session_state.report_text = ex["report"]
+st.subheader("Try an example report")
+example_labels = list(EXAMPLES.keys())
+for row_start in range(0, len(example_labels), 3):
+    cols = st.columns(3)
+    for col, label in zip(cols, example_labels[row_start : row_start + 3]):
+        if col.button(label):
+            # Key-only text area below reads this on rerun. Do NOT pass
+            # value= to that text area, or this update gets ignored.
+            st.session_state.report_input = EXAMPLES[label]
             st.rerun()
 
-report = st.text_area(
-    "Red card report",
-    value=st.session_state.report_text,
-    height=160,
-    placeholder="Enter a red card report here. Call 1 will extract player, team, code, and action.",
-    key="report_input",
-)
-st.session_state.report_text = report
+# Key-only: no value= argument, so example chips can update the text.
+report_text = st.text_area("Referee report", key="report_input", height=150)
 
-if st.button("Run pipeline", type="primary", disabled=not report.strip()):
-    with st.spinner("Running Call 1, branch, Call 2..."):
-        st.session_state.last_result = run_pipeline(
-            reports=[{"case_id": "USER-001", "report": report}],
-            session_cases=st.session_state.session_cases,
-        )
+if st.button("Run pipeline", type="primary"):
+    if not report_text.strip():
+        st.warning("Enter a report first, or pick an example above.")
+    else:
+        try:
+            result = run_pipeline(
+                report_text, session_cases=st.session_state.session_cases
+            )
+        except PipelineError as e:
+            # Plain-English pipeline error -- no traceback.
+            st.error(str(e))
+            st.stop()
+        except Exception as e:
+            st.error(
+                "Something went wrong running the pipeline. "
+                "Try again, or rephrase the report."
+            )
+            with st.expander("Technical detail"):
+                st.code(str(e))
+            st.stop()
+        st.session_state.last_result = result
+        st.session_state.run_id += 1
+        st.rerun()
 
-result = st.session_state.last_result
+# ---------------------------------------------------------------------------
+# Results
+# ---------------------------------------------------------------------------
+
+result = st.session_state.get("last_result")
 if not result:
-    st.info("Enter a report above, or pick an example, and run the pipeline.")
     st.stop()
 
-# --- step timeline + discipline card (adapted from assignor page) ---
-for final_row in result["final"]:
-    facts_by_id = {f["case_id"]: f for f in result.get("facts", [])}
-    fact = facts_by_id.get(final_row["case_id"], {})
+for warning in result.get("warnings", []):
+    st.warning(warning)
 
-    st.divider()
-    st.subheader(final_row.get("final_summary", final_row["case_id"]))
+facts = result.get("facts", [])
+stage_rows = result.get("stage", [])
+final_rows = result.get("final", [])
 
-    # Step timeline, badged DETERMINISTIC / LLM
-    st.markdown("**Steps**")
-    if final_row["recommendation_source"] == "Automatic":
-        st.write("✅ DETERMINISTIC — automatic, no LLM call")
-    elif final_row["recommendation_source"] == "fallback_missing":
-        st.write("⚠️ DETERMINISTIC — missing facts, no guess, returned for more information")
-    elif final_row["recommendation_source"] == "fallback_minimum":
-        st.write("⚠️ LLM — Call 2 failed, fell back to handbook minimum")
-    else:
-        st.write("🤖 LLM — Call 1 facts → branch (range) → Call 2 action only")
+if not final_rows:
+    st.error("The pipeline returned no cases. Try rephrasing the report.")
+    st.stop()
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**Handbook**")
-        st.write(f"{final_row['handbook_section']}: {final_row['handbook_text']}")
-        st.markdown("**Appeal — 15.7**")
-        st.write(
-            "An appeal is allowed against any disciplinary action. "
-            "Any appeal must be submitted in writing by email with supporting evidence "
-            "within 7 days of receipt of the disciplinary report. "
-            "A $250 filing fee applies and is refunded if the appeal is successful, "
-            "less a $50 administrative fee."
-        )
-        st.markdown("**Retrieved examples (top 3, same code)**")
-        examples_used = final_row.get("retrieved_examples", [])
-        if not examples_used:
-            st.write("None — no embedding model, or no similar cases.")
-        for ex in examples_used:
+stage_by_case = {row["case_id"]: row for row in stage_rows}
+
+st.subheader("Recommendation")
+for i, final_row in enumerate(final_rows):
+    badge = (
+        "DETERMINISTIC"
+        if final_row.get("suspension_type") == "automatic"
+        else "LLM"
+    )
+    st.markdown(
+        f"**{final_row.get('team_name')} - {final_row.get('player_name')}** "
+        f"[{badge}]"
+    )
+    st.write(
+        f"Code: {final_row.get('misconduct_code')} | "
+        f"Handbook: {final_row.get('handbook_section')} | "
+        f"Range: {final_row.get('min_games')}-{final_row.get('max_games')} games"
+    )
+    st.write(
+        f"Recommended: {final_row.get('recommended_games')} games -- "
+        f"{final_row.get('recommended_reason')}"
+    )
+
+    stage_row = stage_by_case.get(final_row["case_id"], {})
+    examples = stage_row.get("retrieved_examples", [])
+    if examples:
+        st.write("Retrieved examples used:")
+        for example in examples:
             st.write(
-                f"- {ex['case_id']} · similarity {ex['similarity']} · "
-                f"{ex['expected_games']} games — {ex['expected_reason']}"
+                f"- {example.get('case_id')}: {example.get('expected_games')} games -- "
+                f"{example.get('expected_reason')}"
             )
-    with col2:
-        st.markdown("**Recommendation**")
-        st.write(f"Recommended: **{final_row['recommended_games']} games**")
-        st.write(final_row["recommended_reason"])
-        st.write(f"Source: {final_row['recommendation_source']}")
-        st.markdown("**Stage JSON**")
-        st.json({k: v for k, v in final_row.items() if k != "retrieved_examples"})
 
-    # --- human approval: gold standard, adds to session eval ---
-    st.markdown("**Human decision**")
+    st.write("Handbook + appeal")
+    st.write(final_row.get("handbook_section", ""))
+    st.write(
+        "Appeal (section 15.7): appeal in writing by email with evidence "
+        "within 7 days. $250 filing fee, refunded if successful less a "
+        "$50 admin fee."
+    )
+
+    # Human decision. Keys include run_id so a new run starts fresh
+    # instead of reusing the previous run's edited values.
+    run_id = st.session_state.run_id
+    games_key = f"final_games_{run_id}_{i}"
+    reason_key = f"final_reason_{run_id}_{i}"
     final_games = st.number_input(
         "Final games",
-        min_value=final_row["min_games"],
-        max_value=final_row["max_games"],
-        value=final_row["recommended_games"] or final_row["min_games"],
-        key=f"final_games_{final_row['case_id']}",
+        min_value=int(final_row["min_games"]),
+        max_value=int(final_row["max_games"]),
+        value=int(final_row["recommended_games"]),
+        key=games_key,
     )
     final_reason = st.text_area(
-        "Final reason (if you override, this replaces the LLM reason)",
-        value=final_row["recommended_reason"] or "",
-        key=f"final_reason_{final_row['case_id']}",
+        "Final reason",
+        value=final_row.get("recommended_reason", ""),
+        key=reason_key,
     )
-    if st.button("Approve / Override + Add to session eval", key=f"add_{final_row['case_id']}"):
-        if final_row["recommended_games"] is None:
-            st.warning("Cannot add a missing-facts case to eval — it has no recommendation yet.")
-        else:
-            new_case = add_to_session_eval(
-                st.session_state.session_cases,
-                final_row,
-                fact,
-                final_games=int(final_games),
-                final_reason=final_reason,
-            )
-            st.success(
-                f"Added {new_case['case_id']} to this session's eval store. "
-                f"Total now: {len(preloaded) + len(st.session_state.session_cases)}. "
-                "It will be available for retrieval on the next run in this tab."
-            )
+    if st.button("Approve / Override + Add to session eval", key=f"approve_{run_id}_{i}"):
+        stage_copy = dict(stage_row)
+        stage_copy["final_games"] = int(final_games)
+        stage_copy["final_reason"] = final_reason
+        add_to_session_eval(st.session_state.session_cases, stage_copy, facts[i])
+        st.success(
+            "Added to session eval. "
+            f"Session total is now {preloaded_count + len(st.session_state.session_cases)} cases."
+        )
+        st.rerun()
 
-st.divider()
-st.markdown("**Audit**")
-st.json(result["audit"])
+st.subheader("Stage JSON")
+st.json(stage_rows)
+
+st.subheader("Final JSON")
+st.json(final_rows)
 st.download_button(
-    "Download stage + final JSON",
-    data=json.dumps(result, indent=2),
-    file_name="suspension_result.json",
+    "Download final JSON",
+    data=json.dumps(final_rows, indent=2),
+    file_name="final.json",
     mime="application/json",
 )
+
+st.subheader("Audit")
+st.json(result.get("audit", {}))
