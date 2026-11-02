@@ -307,7 +307,7 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
 # ---------------------------------------------------------------------------
 
 def get_ai_recommendations(client, model, range_facts, eval_cases):
-    """Call 2, batched. Returns (recommendations_dict, warnings, retrieval_enabled).
+    """Call 2, batched. Returns (recommendations_dict, warnings, retrieval_enabled, examples_by_case).
 
     recommendations_dict: case_id -> {recommended_games, recommended_reason, source}
     A per-case failure falls back to the handbook minimum, with a
@@ -315,11 +315,13 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
     """
     warnings = []
     retrieval_enabled = False
+    examples_by_case = {}
     cases_json = []
     for fact in range_facts:
         examples, ret_error = retrieve_top_k(
             fact["action"], eval_cases, fact["misconduct_code"], k=3
         )
+        examples_by_case[fact["case_id"]] = examples
         if examples:
             retrieval_enabled = True
         elif ret_error:
@@ -378,7 +380,7 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
                 "recommended_reason": reason,
                 "source": "AI",
             }
-    return recommendations, warnings, retrieval_enabled
+    return recommendations, warnings, retrieval_enabled, examples_by_case
 
 
 # ---------------------------------------------------------------------------
@@ -494,10 +496,14 @@ def run_pipeline(report_text, session_cases=None):
 
     recommendations = {}
     retrieval_enabled = False
+    examples_by_case = {}
     if range_facts:
-        recommendations, call2_warnings, retrieval_enabled = get_ai_recommendations(
-            client, model, range_facts, eval_cases
-        )
+        (
+            recommendations,
+            call2_warnings,
+            retrieval_enabled,
+            examples_by_case,
+        ) = get_ai_recommendations(client, model, range_facts, eval_cases)
         warnings.extend(call2_warnings)
 
     # --- Stage + final ---
@@ -523,6 +529,7 @@ def run_pipeline(report_text, session_cases=None):
             "recommended_games": rec_games,
             "recommended_reason": rec_reason,
             "source": source,
+            "retrieved_examples": examples_by_case.get(fact["case_id"], []),
         }
         stage.append(stage_row)
 
