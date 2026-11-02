@@ -688,19 +688,5 @@
       "expected_games": 2,
       "expected_reason": "Repeated offensive gestures and profanity in front of spectators, shouting \"fuck off\" repeatedly and continuing after being warned, combines repetition, a public setting, and ignoring a warning, so 2 games is justified."
     },
-    {
-      "case_id": "SYN-050",
-      "section": "OL - Maximum - Discriminatory",
-      "misconduct_code": "OL",
-      "min_games": 1,
-      "max_games": 2,
-      "player_name": "Finn Walsh",
-      "team_name": "Harbor City FC",
-      "minute": 38,
-      "report": "Synthetic report: Used discriminatory and degrading language directed at an opponent, which is more severe than general profanity. Exact slur not quoted in this synthetic case. Sent off for offensive language.",
-      "action": "Used discriminatory and degrading language directed at an opponent, which is more severe than general profanity.",
-      "expected_games": 2,
-      "expected_reason": "Discriminatory and degrading language directed at an opponent is more severe than general profanity, so 2 games is justified."
-    }
   ]
 }
