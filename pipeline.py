@@ -5,6 +5,8 @@ Deterministic workflow with LLM calls inside, nothing else:
   -> clamp / fallback -> stage JSON -> final JSON (after human approval)
 
 Handbook ranges come from discipline.json, not a database.
+Retrieval examples come from eval_cases.json (50 synthetic cases)
+plus any session cases added in this tab. Session-only: new tab resets.
 No real cases, no real names — demo input is synthetic only.
 """
 
@@ -58,6 +60,62 @@ def _get_client():
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not set")
     return OpenAI(api_key=api_key)
+
+
+# ---------- NEW: retrieval from eval store ----------
+
+def load_eval_cases(path="eval_cases.json"):
+    """Load preloaded synthetic eval cases. Returns [] if missing."""
+    try:
+        data = json.loads(Path(path).read_text())
+        if isinstance(data, dict):
+            return data.get("cases", [])
+        return data
+    except Exception:
+        return []
+
+
+def _get_embedding_model():
+    """Lazy load, so the pipeline still works without sentence-transformers.
+    Returns (model, util) or (None, None) if not installed."""
+    try:
+        from sentence_transformers import SentenceTransformer, util
+
+        return SentenceTransformer("all-MiniLM-L6-v2"), util
+    except Exception:
+        return None, None
+
+
+def retrieve_top_k(new_action, cases, code, k=3, exclude_case_id=None, model=None, util=None):
+    """Top k most similar actions, same code only, never the case itself.
+    Similarity is semantic (embedding + cosine), not keyword matching.
+    Returns [] if no model or no cases — Call 2 still works without examples."""
+    filtered = [
+        c for c in cases
+        if c.get("misconduct_code") == code
+        and c.get("case_id") != exclude_case_id
+    ]
+    if not filtered or model is None or util is None:
+        return []
+
+    actions = [c["action"] for c in filtered]
+    doc_embeddings = model.encode(actions, convert_to_tensor=True)
+    query_embedding = model.encode(new_action, convert_to_tensor=True)
+    scores = util.cos_sim(query_embedding, doc_embeddings)[0]
+
+    ranked = sorted(
+        zip(filtered, scores), key=lambda x: float(x[1]), reverse=True
+    )
+    return [
+        {
+            "case_id": c["case_id"],
+            "action": c["action"],
+            "expected_games": c.get("expected_games"),
+            "expected_reason": c.get("expected_reason"),
+            "similarity": round(float(score), 4),
+        }
+        for c, score in ranked[:k]
+    ]
 
 
 # ---------- Call 1: classify + extract ----------
@@ -123,12 +181,23 @@ def _build_automatic_recommendation_reason(code):
     return "Automatic recommendation based on handbook minimum."
 
 
-# ---------- Call 2: range reasoning, action only ----------
+# ---------- Call 2: range reasoning, action only + retrieved examples ----------
 
-def _build_call2_cases_json(facts):
-    # Call 2 sees action only. No team, no player, no full report.
+def _build_call2_cases_json(facts, eval_cases=None, embedding_model=None, util=None):
+    # Call 2 sees action only, plus top-3 retrieved examples for that case.
+    # No team, no player, no full report. Examples are examples, not rules —
+    # the handbook range in the same case still controls, and code clamps after.
     cases = []
     for fact in facts:
+        examples = retrieve_top_k(
+            fact["action"],
+            eval_cases or [],
+            fact["misconduct_code"],
+            k=3,
+            exclude_case_id=fact["case_id"],
+            model=embedding_model,
+            util=util,
+        )
         cases.append(
             {
                 "case_id": fact["case_id"],
@@ -138,23 +207,29 @@ def _build_call2_cases_json(facts):
                 "handbook_text": fact["handbook_text"],
                 "min_games": fact["min_games"],
                 "max_games": fact["max_games"],
+                "examples": examples,
             }
         )
-    return json.dumps(cases, indent=2)
+    return json.dumps(cases, indent=2), cases
 
 
-def get_ai_recommendations(facts, client):
+def get_ai_recommendations(facts, client, eval_cases=None, embedding_model=None, util=None):
     """Call 2, batched. Returns {case_id: stage-dict}.
     Clamped to [min, max]. Missing case or any failure
     falls back to the handbook minimum."""
-    user_prompt = CALL_2_USER.replace(
-        "{cases_json}", _build_call2_cases_json(facts)
+    cases_json, cases_with_examples = _build_call2_cases_json(
+        facts, eval_cases, embedding_model, util
     )
+    user_prompt = CALL_2_USER.replace("{cases_json}", cases_json)
     data = _call_llm_json(client, CALL_2_SYSTEM, user_prompt)
     by_id = {}
     if data and "recommendations" in data:
         for rec in data["recommendations"]:
             by_id[rec.get("case_id")] = rec
+
+    examples_by_id = {
+        c["case_id"]: c.get("examples", []) for c in cases_with_examples
+    }
 
     stage = {}
     for fact in facts:
@@ -183,6 +258,7 @@ def get_ai_recommendations(facts, client):
             "recommended_games": games,
             "recommended_reason": reason,
             "recommendation_source": source,
+            "retrieved_examples": examples_by_id.get(fact["case_id"], []),
         }
     return stage
 
@@ -199,10 +275,12 @@ def build_final_summary(fact, stage_row):
 
 # ---------- human approval ----------
 
-def approve(stage_row, fact, final_games=None, final_reason=None, approved_by=None):
+def approve(stage_row, fact, final_games=None, final_reason=None, approved_by=None, thumbs=None):
     """Human approval. If a human overrides, the human reason replaces
     the LLM reason as the official record. Deterministic cases need
-    no human approval; range cases do."""
+    no human approval; range cases do.
+    thumbs: 'up' / 'down' / None — recorded on the session log entry,
+    not on the preloaded case itself."""
     if final_games is None:
         final_games = stage_row["recommended_games"]
         status = "approved"
@@ -216,20 +294,29 @@ def approve(stage_row, fact, final_games=None, final_reason=None, approved_by=No
         "final_reason": final_reason or stage_row["recommended_reason"],
         "approved_by": approved_by,
         "status": status,
+        "thumbs": thumbs,
         "final_summary": build_final_summary(fact, stage_row),
     }
 
 
 # ---------- main pipeline ----------
 
-def run_pipeline(reports, handbook_path="discipline.json", client=None):
+def run_pipeline(reports, handbook_path="discipline.json", client=None,
+                 eval_cases_path="eval_cases.json", session_cases=None):
     """reports: [{"case_id": "...", "report": "..."}]
+    session_cases: user-added cases in this tab only, session-only.
     Returns {"stage": [...], "final": [...], "audit": {...}}.
     Final rows are pending until approve() is called."""
     start = time.time()
     handbook = load_handbook(handbook_path)
     if client is None:
         client = _get_client()
+
+    # Eval store = preloaded 50 + session additions, session-only.
+    eval_cases = load_eval_cases(eval_cases_path)
+    if session_cases:
+        eval_cases = eval_cases + session_cases
+    embedding_model, util = _get_embedding_model()
 
     facts = _enrich_facts(get_facts(reports, client), handbook)
     facts_by_id = {f["case_id"]: f for f in facts}
@@ -253,6 +340,7 @@ def run_pipeline(reports, handbook_path="discipline.json", client=None):
                         + ", ".join(fact["missing_facts"])
                     ),
                     "recommendation_source": "fallback_missing",
+                    "retrieved_examples": [],
                 }
             )
         elif fact["suspension_type"] == "automatic":
@@ -269,13 +357,16 @@ def run_pipeline(reports, handbook_path="discipline.json", client=None):
                         fact["misconduct_code"]
                     ),
                     "recommendation_source": "Automatic",
+                    "retrieved_examples": [],
                 }
             )
         else:
             range_facts.append(fact)
 
     if range_facts:
-        ai_stage = get_ai_recommendations(range_facts, client)
+        ai_stage = get_ai_recommendations(
+            range_facts, client, eval_cases, embedding_model, util
+        )
         stage.extend(ai_stage[f["case_id"]] for f in range_facts)
 
     # Keep stage in input order.
@@ -292,6 +383,7 @@ def run_pipeline(reports, handbook_path="discipline.json", client=None):
                 "final_reason": None,
                 "approved_by": None,
                 "status": "pending",
+                "thumbs": None,
                 "final_summary": build_final_summary(fact, row)
                 if row["recommended_games"] is not None
                 else row["recommended_reason"],
@@ -306,5 +398,7 @@ def run_pipeline(reports, handbook_path="discipline.json", client=None):
         "rule_version": 1,
         "latency_seconds": round(time.time() - start, 2),
         "stage_sources": [row["recommendation_source"] for row in stage],
+        "retrieval_enabled": embedding_model is not None,
+        "eval_cases_used": len(eval_cases),
     }
     return {"stage": stage, "final": final, "audit": audit}
