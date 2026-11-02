@@ -35,7 +35,7 @@ Cases:
 
 Return JSON only, in the schema above. No other text, no extra keys."""
 
-
+CALL_2_SYSTEM = """You recommend suspension lengths for soccer misconduct cases. Return JSON only."""
 
 CALL_2_USER = """You are helping recommend suspensions for multiple soccer misconduct incidents.
 
