@@ -524,9 +524,24 @@ with tab_run:
                 )
                 if log.get("error"):
                     st.write(f"Retrieval error: {log.get('error')}")
-                for example in log.get("top_examples", []):
+                if log.get("embedding"):
+                    _emb = log["embedding"]
                     st.write(
-                        f"- {example.get('case_id')}: score {example.get('score')} -- "
+                        f"Embedding timing (seconds): model load {_emb.get('model_load_seconds')} "
+                        f"(cached: {_emb.get('model_was_cached')}), query encode {_emb.get('query_encode_seconds')}, "
+                        f"docs encode {_emb.get('docs_encode_seconds')} for {_emb.get('docs_encoded')} docs, "
+                        f"similarity {_emb.get('similarity_seconds')}"
+                    )
+                for example in log.get("top_examples", []):
+                    _boost = example.get("session_boost", 0.0) or 0.0
+                    _boost_text = (
+                        f" (raw {example.get('raw_score')} + session boost {_boost})"
+                        if _boost
+                        else ""
+                    )
+                    st.write(
+                        f"- {example.get('case_id')}: score {example.get('score')}{_boost_text} -- "
+                        f"{example.get('source', '')} -- "
                         f"{example.get('expected_games')} games -- "
                         f"{example.get('expected_reason')}"
                     )
@@ -613,3 +628,9 @@ with tab_run:
         )
         st.subheader("Audit")
         st.json(result.get("audit", {}))
+        # Timing is the point of this log: Call 1, retrieval, and
+        # Call 2 are timed separately, so we can see which stage
+        # makes Run Pipeline slow, before fixing any of them.
+        if result.get("timings"):
+            st.subheader("Timings (seconds, Run Pipeline only)")
+            st.json(result["timings"])
