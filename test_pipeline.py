@@ -18,14 +18,14 @@ from pipeline import PipelineError
 
 HANDBOOK = {
     "2CT": {
-        "code": "2CT",
+        "misconduct_code": "2CT",
         "min_games": 1,
         "max_games": 1,
         "handbook_section": "14.2",
         "handbook_text": "Second caution.",
     },
     "VC": {
-        "code": "VC",
+        "misconduct_code": "VC",
         "min_games": 2,
         "max_games": 4,
         "handbook_section": "14.7",
