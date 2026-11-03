@@ -219,20 +219,27 @@ def _extract_usage(response):
     }
 
 
-def _call_llm_json(client, model, system_prompt, user_prompt):
+def _call_llm_json(client, model, system_prompt, user_prompt, reasoning_effort=None):
     """One LLM call. Returns (parsed_json_or_None, error_or_None).
 
     Never raises for an API/parse failure -- the caller decides whether
     that failure is recoverable (Call 2 fallback) or fatal (Call 1).
     Usage from the last call is stored in _LAST_LLM_USAGE.
+    reasoning_effort is None by default, meaning do not pass the
+    reasoning parameter at all, so the API uses its default medium.
+    Pass "low" only for Call 1, the light_model extraction call.
     """
     try:
+        _kwargs = {}
+        if reasoning_effort:
+            _kwargs["reasoning"] = {"effort": reasoning_effort}
         response = client.responses.create(
             model=model,
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            **_kwargs,
         )
         text = response.output_text
         _LAST_LLM_USAGE.clear()
@@ -283,7 +290,13 @@ def get_facts(client, model, report_text):
     )
     if report_text not in user_prompt:
         user_prompt += f"\n\nReport:\n{report_text}"
-    data, error = _call_llm_json(client, model, CALL_1_SYSTEM, user_prompt)
+    # Low reasoning for light_model only: nano at default medium used
+    # 1408 reasoning tokens for Call 1 (Nov 3 run), versus 512-576 on
+    # gpt-5, so the model change alone did not speed Call 1 up.
+    # Call 2 keeps the default medium reasoning, unchanged.
+    data, error = _call_llm_json(
+        client, model, CALL_1_SYSTEM, user_prompt, reasoning_effort="low"
+    )
     # Usage is stored globally by _call_llm_json; get_facts itself
     # keeps its (facts, error) signature, run_pipeline reads the
     # global after this call to log Call 1 usage.
@@ -889,6 +902,8 @@ def run_pipeline(report_text, session_cases=None):
         "model": model,
         "model_call1": model_call1,
         "model_call2": model,
+        "reasoning_call1": "low",
+        "reasoning_call2": "medium (default)",
         "rule_version": 1,
         "latency_seconds": total_seconds,
         "stage_seconds": timings,
