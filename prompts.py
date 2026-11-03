@@ -30,9 +30,6 @@ Rules:
 - action must NOT include the player name. That is the only
   name removed from the action text.
 
-Cases:
-{cases_json}
-
 Return JSON only, in the schema above. No other text, no extra keys."""
 
 CALL_2_SYSTEM = """You recommend suspension lengths for soccer misconduct cases. Return JSON only."""
