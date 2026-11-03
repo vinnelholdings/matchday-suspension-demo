@@ -7,6 +7,16 @@ CALL_1_USER = """Extract facts from the report below.
 Report:
 {report}
 
+Misconduct codes, use exactly one, and use the tie-breaker for VC vs SFP:
+- VC (violent conduct): deliberate force against a person when NOT challenging for the ball. Examples: punching, headbutting, elbowing, stamping, biting, striking, kicking an opponent off the ball, retaliation.
+- SFP (serious foul play): a challenge FOR the ball that endangers safety, with excessive force. Examples: lunging, exposed studs, high or forceful contact, while contesting the ball.
+- Tie-breaker: if the player was challenging for the ball, it is SFP, even if contact was forceful or caused injury. If the player was NOT challenging for the ball, it is VC.
+- OL (offensive/insulting/abusive language and/or gestures): any abusive language or gesture, regardless of target.
+- 2CT: second caution in the same match.
+- DH: denying a goal or goal-scoring opportunity by handling.
+- DF: denying a goal-scoring opportunity by a foul punishable by a free kick or penalty.
+- S: spitting at any person.
+
 Return JSON only, matching this schema exactly:
 
 {
