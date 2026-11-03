@@ -23,11 +23,30 @@ Error handling in this version:
 """
 
 import json
+import logging
 import os
 import re
+import sys
 import time
 
 from prompts import CALL_1_SYSTEM, CALL_1_USER, CALL_2_SYSTEM, CALL_2_USER
+
+# Standard Python logging, not print(). Print output can sit
+# buffered or in the wrong stream on Streamlit Cloud, which is why
+# the timing print was hard to find in Cloud logs. A logger with a
+# StreamHandler to stdout, level INFO, shows up in Manage app > Logs
+# as a normal log line, with a timestamp and level.
+logger = logging.getLogger("matchday_suspension_demo")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    _handler = logging.StreamHandler(sys.stdout)
+    _handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    )
+    logger.addHandler(_handler)
+# Do not propagate to root, otherwise the same line appears twice
+# when the host (Streamlit / pytest) also configures root logging.
+logger.propagate = False
 
 
 class PipelineError(Exception):
@@ -776,10 +795,17 @@ def run_pipeline(report_text, session_cases=None):
     }
     # Console log, visible in Streamlit Cloud Manage app > Logs, so
     # timing can be checked without opening the Audit expander.
-    print(
-        f"[pipeline timing] call1={call1_seconds}s "
-        f"retrieval={retrieval_seconds}s call2={call2_seconds}s "
-        f"total={total_seconds}s"
+    logger.info(
+        "[pipeline timing] call1=%ss retrieval=%ss call2=%ss total=%ss",
+        call1_seconds,
+        retrieval_seconds,
+        call2_seconds,
+        total_seconds,
+    )
+    logger.info(
+        "[pipeline retrieval] enabled=%s eval_cases_used=%s",
+        retrieval_enabled,
+        len(eval_cases),
     )
     audit = {
         "model": model,
