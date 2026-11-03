@@ -424,6 +424,19 @@ with tab_logs:
             f"retrieval {_timings.get('retrieval_seconds', '?')}s, "
             f"Call 2 {_timings.get('call2_seconds', '?')}s."
         )
+        for _label, _usage in (
+            ("Call 1 usage", _timings.get("call1_usage", {}) or {}),
+            ("Call 2 usage", _timings.get("call2_usage", {}) or {}),
+        ):
+            if _usage:
+                st.info(
+                    f"{_label}: input {_usage.get('input_tokens')}, "
+                    f"output {_usage.get('output_tokens')}, "
+                    f"reasoning {_usage.get('reasoning_tokens')}, "
+                    f"total {_usage.get('total_tokens')} tokens."
+                )
+            else:
+                st.info(f"{_label}: not available for this run.")
         _audit = _log_result.get("audit", {}) or {}
         st.info(
             f"Retrieval enabled: {_audit.get('retrieval_enabled')}, "
