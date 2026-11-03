@@ -59,7 +59,11 @@ def load_handbook(path="discipline.json"):
 
     handbook = {}
     for rule in rules:
-        code = rule.get("code")
+        # One spelling everywhere: misconduct_code. discipline.json,
+        # eval cases, Call 1 output, and the rest of the pipeline all
+        # already use it; "code" was the one outlier, and it emptied
+        # the handbook and raised "contains no usable rules".
+        code = rule.get("misconduct_code")
         if not code:
             continue
         handbook[code] = rule
@@ -163,13 +167,29 @@ def get_facts(client, model, report_text):
     if not report_text or not report_text.strip():
         return [], "No report text was provided."
 
-    user_prompt = CALL_1_USER.format(report=report_text)
+    # Do NOT use .format() here: the real CALL_1_USER contains a JSON
+    # schema with single braces, so .format() raises KeyError: 'facts'
+    # before the LLM is ever called. Replace the placeholder instead,
+    # which leaves every other brace in the prompt untouched.
+    # The real prompt uses {cases_json}; older stubs used {report}.
+    user_prompt = CALL_1_USER.replace("{cases_json}", report_text).replace(
+        "{report}", report_text
+    )
+    if report_text not in user_prompt:
+        user_prompt += f"\n\nReport:\n{report_text}"
     data, error = _call_llm_json(client, model, CALL_1_SYSTEM, user_prompt)
     if error:
         return [], error
     if not isinstance(data, dict) or not isinstance(data.get("facts"), list):
         return [], "LLM response did not contain a 'facts' list."
-    return data["facts"], None
+    facts = data["facts"]
+    # A free-text report has no case_id to copy, so the LLM may omit
+    # it. Assign one in code rather than letting stage/final rows
+    # (and the app's stage lookup) key on None.
+    for i, fact in enumerate(facts):
+        if isinstance(fact, dict) and not fact.get("case_id"):
+            fact["case_id"] = f"CASE-{i + 1}"
+    return facts, None
 
 
 def _enrich_facts(facts, handbook):
