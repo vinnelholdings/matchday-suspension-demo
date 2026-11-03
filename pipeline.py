@@ -604,7 +604,7 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
     _call2_start = time.time()
     data, error = _call_llm_json(
         client, model, CALL_2_SYSTEM, CALL_2_USER.format(cases_json=json.dumps(cases_json))
-    )
+    ,reasoning_effort="low")
     call2_seconds = round(time.time() - _call2_start, 2)
 
     by_case = {}
@@ -903,7 +903,7 @@ def run_pipeline(report_text, session_cases=None):
         "model_call1": model_call1,
         "model_call2": model,
         "reasoning_call1": "minimal",
-        "reasoning_call2": "medium (default)",
+        "reasoning_call2": "low",
         "rule_version": 1,
         "latency_seconds": total_seconds,
         "stage_seconds": timings,
