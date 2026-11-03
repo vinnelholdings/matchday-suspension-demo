@@ -332,6 +332,14 @@ def _get_embedding_model():
         return None, None
 
 
+# Last embedding timing, read by get_ai_recommendations so the
+# app can log it next to the embeddings themselves. This is timing
+# only, not a speed fix: it splits retrieval into model load, query
+# encode, docs encode, and similarity, so we can see if embeddings
+# are overkill before replacing them with something faster.
+_LAST_EMBEDDING_TIMING = {}
+
+
 def retrieve_top_k(query_action, eval_cases, code, k=3):
     """Top-k same-code eval cases by whole-action semantic similarity.
 
@@ -348,8 +356,23 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
     """
     if not query_action or not eval_cases:
         return [], None
+    _emb_start = time.time()
+    _model_was_cached = _MODEL_CACHE["model"] is not None
     model, util = _get_embedding_model()
+    model_load_seconds = round(time.time() - _emb_start, 2)
     if model is None:
+        _LAST_EMBEDDING_TIMING.clear()
+        _LAST_EMBEDDING_TIMING.update(
+            {
+                "model_was_cached": _model_was_cached,
+                "model_load_seconds": model_load_seconds,
+                "query_encode_seconds": 0.0,
+                "docs_encode_seconds": 0.0,
+                "similarity_seconds": 0.0,
+                "docs_encoded": 0,
+                "error": "sentence-transformers not available; retrieval disabled.",
+            }
+        )
         return [], "sentence-transformers not available; retrieval disabled."
 
     candidates = [c for c in eval_cases if c.get("misconduct_code") == code]
@@ -357,15 +380,49 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
         return [], None
 
     try:
+        _t = time.time()
         query_emb = model.encode(query_action, convert_to_tensor=True)
+        query_encode_seconds = round(time.time() - _t, 2)
         docs = [c.get("action", "") for c in candidates]
+        _t = time.time()
         doc_emb = model.encode(docs, convert_to_tensor=True)
+        docs_encode_seconds = round(time.time() - _t, 2)
+        _t = time.time()
         scores = util.cos_sim(query_emb, doc_emb)[0]
+        similarity_seconds = round(time.time() - _t, 2)
+        _LAST_EMBEDDING_TIMING.clear()
+        _LAST_EMBEDDING_TIMING.update(
+            {
+                "model_was_cached": _model_was_cached,
+                "model_load_seconds": model_load_seconds,
+                "query_encode_seconds": query_encode_seconds,
+                "docs_encode_seconds": docs_encode_seconds,
+                "similarity_seconds": similarity_seconds,
+                "docs_encoded": len(docs),
+                "error": None,
+            }
+        )
         ranked = sorted(
             zip(candidates, scores.tolist()), key=lambda pair: pair[1], reverse=True
         )
+        # Demo-only bias: human-added session cases are weighed
+        # higher than pre-seed cases, by +0.10, capped at 1.0, and
+        # ranked by the boosted score. This is ONLY because the
+        # pre-seed cases are synthetic, not real historical data.
+        # In prod with real historical decisions, the pre-seed would
+        # be real data too, and this boost would not apply.
+        # The boost is logged (raw_score, session_boost, score) and
+        # the source is passed to Call 2, so it is not hidden.
         examples = []
-        for case, score in ranked[:k]:
+        boosted_ranked = []
+        for case, raw_score in ranked:
+            is_session = str(case.get("case_id", "")).startswith("SESSION-")
+            boost = 0.10 if is_session else 0.0
+            final_score = min(1.0, float(raw_score) + boost)
+            boosted_ranked.append((case, raw_score, boost, final_score))
+        boosted_ranked.sort(key=lambda item: item[3], reverse=True)
+        for case, raw_score, boost, final_score in boosted_ranked[:k]:
+            is_session = str(case.get("case_id", "")).startswith("SESSION-")
             examples.append(
                 {
                     "case_id": case.get("case_id"),
@@ -374,7 +431,10 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
                     "max_games": case.get("max_games"),
                     "expected_games": case.get("expected_games"),
                     "expected_reason": case.get("expected_reason"),
-                    "score": round(float(score), 3),
+                    "source": "human approved" if is_session else "synthetic preloaded",
+                    "score": round(float(final_score), 3),
+                    "raw_score": round(float(raw_score), 3),
+                    "session_boost": boost,
                 }
             )
         return examples, None
@@ -387,24 +447,30 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
 # ---------------------------------------------------------------------------
 
 def get_ai_recommendations(client, model, range_facts, eval_cases):
-    """Call 2, batched. Returns (recommendations_dict, warnings, retrieval_enabled, examples_by_case, retrieval_log_by_case).
+    """Call 2, batched. Returns (recommendations_dict, warnings, retrieval_enabled, examples_by_case, retrieval_log_by_case, timings).
 
     recommendations_dict: case_id -> {recommended_games, recommended_reason, source}
     A per-case failure falls back to the handbook minimum, with a
     warning -- it never drops the case.
     retrieval_log_by_case: case_id -> {query_action, code, model_loaded,
-    candidates_considered, top_examples, error} -- the embedding and
-    similarity steps, shown in the app when retrieval detail is on.
+    candidates_considered, top_examples, error, retrieval_seconds} --
+    the embedding and similarity steps, shown in the app when retrieval
+    detail is on. timings: {retrieval_seconds, call2_seconds} -- timing
+    only, no speed fix yet, so we can see what actually takes time.
     """
     warnings = []
     retrieval_enabled = False
     examples_by_case = {}
     retrieval_log_by_case = {}
     cases_json = []
+    retrieval_seconds_total = 0.0
     for fact in range_facts:
+        _ret_start = time.time()
         examples, ret_error = retrieve_top_k(
             fact["action"], eval_cases, fact["misconduct_code"], k=3
         )
+        _ret_seconds = round(time.time() - _ret_start, 2)
+        retrieval_seconds_total += _ret_seconds
         examples_by_case[fact["case_id"]] = examples
         # Candidates are same-code cases only, exactly as
         # retrieve_top_k filters them. This log is computed here so
@@ -420,6 +486,11 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
             "candidate_case_ids": [c.get("case_id") for c in candidates_considered],
             "top_examples": examples,
             "error": ret_error,
+            "retrieval_seconds": _ret_seconds,
+            # Embedding breakdown, logged next to the embeddings:
+            # model load, query encode, docs encode, similarity.
+            # If retrieve_top_k was mocked in tests, this will be {}.
+            "embedding": dict(_LAST_EMBEDDING_TIMING),
         }
         if examples:
             retrieval_enabled = True
@@ -436,9 +507,11 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
             }
         )
 
+    _call2_start = time.time()
     data, error = _call_llm_json(
         client, model, CALL_2_SYSTEM, CALL_2_USER.format(cases_json=json.dumps(cases_json))
     )
+    call2_seconds = round(time.time() - _call2_start, 2)
 
     by_case = {}
     if error:
@@ -479,7 +552,17 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
                 "recommended_reason": reason,
                 "source": "AI",
             }
-    return recommendations, warnings, retrieval_enabled, examples_by_case, retrieval_log_by_case
+    return (
+        recommendations,
+        warnings,
+        retrieval_enabled,
+        examples_by_case,
+        retrieval_log_by_case,
+        {
+            "retrieval_seconds": round(retrieval_seconds_total, 2),
+            "call2_seconds": call2_seconds,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -567,7 +650,9 @@ def run_pipeline(report_text, session_cases=None):
     model = os.environ.get("OPENAI_MODEL", "gpt-5")
 
     # --- Call 1 ---
+    _call1_start = time.time()
     raw_facts, call1_error = get_facts(client, model, report_text)
+    call1_seconds = round(time.time() - _call1_start, 2)
     if call1_error:
         errors.append(call1_error)
     if not raw_facts:
@@ -624,6 +709,8 @@ def run_pipeline(report_text, session_cases=None):
     retrieval_enabled = False
     examples_by_case = {}
     retrieval_log_by_case = {}
+    retrieval_seconds = 0.0
+    call2_seconds = 0.0
     if range_facts:
         (
             recommendations,
@@ -631,8 +718,11 @@ def run_pipeline(report_text, session_cases=None):
             retrieval_enabled,
             examples_by_case,
             retrieval_log_by_case,
+            ai_timings,
         ) = get_ai_recommendations(client, model, range_facts, eval_cases)
         warnings.extend(call2_warnings)
+        retrieval_seconds = ai_timings.get("retrieval_seconds", 0.0)
+        call2_seconds = ai_timings.get("call2_seconds", 0.0)
 
     # --- Stage + final ---
     stage = []
@@ -677,10 +767,25 @@ def run_pipeline(report_text, session_cases=None):
         }
         final.append(final_row)
 
+    total_seconds = round(time.time() - start, 2)
+    timings = {
+        "call1_seconds": call1_seconds,
+        "retrieval_seconds": retrieval_seconds,
+        "call2_seconds": call2_seconds,
+        "total_seconds": total_seconds,
+    }
+    # Console log, visible in Streamlit Cloud Manage app > Logs, so
+    # timing can be checked without opening the Audit expander.
+    print(
+        f"[pipeline timing] call1={call1_seconds}s "
+        f"retrieval={retrieval_seconds}s call2={call2_seconds}s "
+        f"total={total_seconds}s"
+    )
     audit = {
         "model": model,
         "rule_version": 1,
-        "latency_seconds": round(time.time() - start, 2),
+        "latency_seconds": total_seconds,
+        "stage_seconds": timings,
         "retrieval_enabled": retrieval_enabled,
         "eval_cases_used": len(eval_cases),
         "stage_sources": sorted({row["source"] for row in stage}),
@@ -691,6 +796,7 @@ def run_pipeline(report_text, session_cases=None):
         "stage": stage,
         "final": final,
         "audit": audit,
+        "timings": timings,
         "retrieval_log": retrieval_log_by_case,
         "warnings": warnings,
         "errors": errors,
