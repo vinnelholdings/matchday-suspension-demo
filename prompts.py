@@ -5,6 +5,9 @@ Copy case_id exactly."""
 
 CALL_1_USER = """Extract facts for each case below.
 
+Report:
+{report}
+
 Return JSON only, matching this schema exactly:
 
 {
