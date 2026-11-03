@@ -295,7 +295,7 @@ def get_facts(client, model, report_text):
     # gpt-5, so the model change alone did not speed Call 1 up.
     # Call 2 keeps the default medium reasoning, unchanged.
     data, error = _call_llm_json(
-        client, model, CALL_1_SYSTEM, user_prompt, reasoning_effort="low"
+        client, model, CALL_1_SYSTEM, user_prompt, reasoning_effort="minimal"
     )
     # Usage is stored globally by _call_llm_json; get_facts itself
     # keeps its (facts, error) signature, run_pipeline reads the
