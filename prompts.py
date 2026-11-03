@@ -1,9 +1,8 @@
 CALL_1_SYSTEM = """You extract facts from a soccer red card report.
 Return JSON only, matching the schema in the user prompt exactly.
-Do not add extra keys. Do not invent facts.
-Copy case_id exactly."""
+Do not add extra keys. Do not invent facts."""
 
-CALL_1_USER = """Extract facts for each case below.
+CALL_1_USER = """Extract facts from the report below.
 
 Report:
 {report}
@@ -13,7 +12,6 @@ Return JSON only, matching this schema exactly:
 {
   "facts": [
     {
-      "case_id": "string, copy exactly from the input",
       "player_name": "string, or null if not in the report",
       "team_name": "string, or null if not in the report",
       "misconduct_code": "string, e.g. VC, SFP, OL, 2CT, DH, DF, S",
