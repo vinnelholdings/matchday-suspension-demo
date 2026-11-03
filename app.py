@@ -369,7 +369,9 @@ def build_recommendation_table(final_rows):
     )
 
 
-tab_run, tab_examples = st.tabs(["Run a report", "More examples"])
+tab_run, tab_examples, tab_logs = st.tabs(
+    ["Run a report", "More examples", "Logs"]
+)
 
 with tab_examples:
     st.markdown(
@@ -394,6 +396,66 @@ with tab_examples:
             """,
             unsafe_allow_html=True,
         )
+
+with tab_logs:
+    # Temporary debug tab, can be removed later. No more hunting
+    # Cloud logs: everything logged for the last run is shown here
+    # with st.info, in plain lines, in one place.
+    st.markdown(
+        """
+        <div class="md-card">
+            <div class="md-card-header">
+                <div class="md-card-label">Logs</div>
+                <div class="md-card-subtitle">Temporary debug tab, can be removed
+                later. Shows the last run only.</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    _log_result = st.session_state.get("last_result")
+    if not _log_result:
+        st.info("No run yet. Run a report on the Run a report tab, then logs will appear here.")
+    else:
+        _timings = _log_result.get("timings", {}) or {}
+        st.info(
+            f"Run Pipeline took {_timings.get('total_seconds', '?')} seconds: "
+            f"Call 1 {_timings.get('call1_seconds', '?')}s, "
+            f"retrieval {_timings.get('retrieval_seconds', '?')}s, "
+            f"Call 2 {_timings.get('call2_seconds', '?')}s."
+        )
+        _audit = _log_result.get("audit", {}) or {}
+        st.info(
+            f"Retrieval enabled: {_audit.get('retrieval_enabled')}, "
+            f"eval cases used: {_audit.get('eval_cases_used')}, "
+            f"sources: {', '.join(_audit.get('stage_sources', []))}."
+        )
+        for _warning in _log_result.get("warnings", []):
+            st.info(f"Warning: {_warning}")
+        for _case_id, _log in (_log_result.get("retrieval_log", {}) or {}).items():
+            st.info(f"Retrieval for {_case_id}: code {_log.get('code')}, "
+                    f"candidates {_log.get('candidates_considered')}, "
+                    f"model loaded {_log.get('model_loaded')}.")
+            if _log.get("embedding"):
+                _emb = _log["embedding"]
+                st.info(
+                    f"Embedding for {_case_id}: model load {_emb.get('model_load_seconds')}s "
+                    f"(cached: {_emb.get('model_was_cached')}), query encode {_emb.get('query_encode_seconds')}s, "
+                    f"docs encode {_emb.get('docs_encode_seconds')}s for {_emb.get('docs_encoded')} docs, "
+                    f"similarity {_emb.get('similarity_seconds')}s."
+                )
+            for _example in _log.get("top_examples", []):
+                _boost = _example.get("session_boost", 0.0) or 0.0
+                _boost_text = (
+                    f" (raw {_example.get('raw_score')} + session boost {_boost})"
+                    if _boost
+                    else ""
+                )
+                st.info(
+                    f"Retrieved {_example.get('case_id')}: score {_example.get('score')}{_boost_text}, "
+                    f"{_example.get('source', '')}, {_example.get('expected_games')} games."
+                )
+        st.json(_log_result.get("audit", {}))
 
 with tab_run:
     # --- Input card -------------------------------------------------------
