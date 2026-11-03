@@ -133,6 +133,25 @@ def extract_minute(report_text, fact=None):
 # OpenAI client
 # ---------------------------------------------------------------------------
 
+def _get_config(key, default=None):
+    """Read a config value from environment first, then Streamlit secrets.
+
+    This matters: Streamlit Secrets are NOT environment variables
+    on their own -- st.secrets.get() is required, otherwise a Secret
+    set in Cloud would be silently ignored and the default used.
+    """
+    value = os.environ.get(key)
+    if value:
+        return value
+    try:
+        import streamlit as st
+
+        value = st.secrets.get(key)
+    except Exception:
+        value = None
+    return value or default
+
+
 def _get_client():
     """Return an OpenAI client.
 
@@ -257,7 +276,8 @@ def get_facts(client, model, report_text):
     # schema with single braces, so .format() raises KeyError: 'facts'
     # before the LLM is ever called. Replace the placeholder instead,
     # which leaves every other brace in the prompt untouched.
-    # The real prompt uses {cases_json}; older stubs used {report}.
+    # The prompt template now uses {report} in place, so the report
+    # is no longer appended after the return instruction by fallback.
     user_prompt = CALL_1_USER.replace("{cases_json}", report_text).replace(
         "{report}", report_text
     )
@@ -272,11 +292,14 @@ def get_facts(client, model, report_text):
     if not isinstance(data, dict) or not isinstance(data.get("facts"), list):
         return [], "LLM response did not contain a 'facts' list."
     facts = data["facts"]
-    # A free-text report has no case_id to copy, so the LLM may omit
-    # it. Assign one in code rather than letting stage/final rows
-    # (and the app's stage lookup) key on None.
+    # Case_id is autoincremented in code, not taken from the LLM.
+    # Call 1 no longer outputs case_id at all: a free-text report
+    # has no case_id to copy, and letting the LLM invent one caused
+    # duplicates, non-sequential IDs, and wasted reasoning. Assign
+    # CASE-1, CASE-2, ... in the order facts are returned, per run.
+    # Session eval cases get their own SESSION-xxx IDs separately.
     for i, fact in enumerate(facts):
-        if isinstance(fact, dict) and not fact.get("case_id"):
+        if isinstance(fact, dict):
             fact["case_id"] = f"CASE-{i + 1}"
     return facts, None
 
@@ -706,11 +729,21 @@ def run_pipeline(report_text, session_cases=None):
 
     handbook = load_handbook()
     client = _get_client()
-    model = os.environ.get("OPENAI_MODEL", "gpt-5")
+    # Call 1 and Call 2 models are config, not hardcoded choices.
+    # Simple names, set in Streamlit Secrets (or environment):
+    #   light_model = Call 1, extraction only -- e.g. gpt-5-nano,
+    #     normal default medium reasoning for now, no low/minimal
+    #     yet, so the model change can be measured alone.
+    #   full_model = Call 2, suspension judgment -- e.g. gpt-5.
+    # "full" is used instead of "strong": strong is ambiguous in
+    # this domain (a strong suspension), full means full capability.
+    # If light_model is not set, Call 1 falls back to full_model.
+    model = _get_config("full_model", "gpt-5")
+    model_call1 = _get_config("light_model", model)
 
     # --- Call 1 ---
     _call1_start = time.time()
-    raw_facts, call1_error = get_facts(client, model, report_text)
+    raw_facts, call1_error = get_facts(client, model_call1, report_text)
     call1_seconds = round(time.time() - _call1_start, 2)
     call1_usage = dict(_LAST_LLM_USAGE)
     if call1_error:
@@ -854,6 +887,8 @@ def run_pipeline(report_text, session_cases=None):
     )
     audit = {
         "model": model,
+        "model_call1": model_call1,
+        "model_call2": model,
         "rule_version": 1,
         "latency_seconds": total_seconds,
         "stage_seconds": timings,
