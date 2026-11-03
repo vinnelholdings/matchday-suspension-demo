@@ -1,3 +1,3 @@
 openai
 sentence-transformers
-streamlit
+streamlit==1.66.1
