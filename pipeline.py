@@ -167,11 +167,45 @@ def _get_client():
     return OpenAI(api_key=api_key)
 
 
+# Last LLM usage, read by the caller so the Log tab can show
+# what the API actually returned: input, output, reasoning, and
+# total tokens. Kept as a module global so _call_llm_json keeps its
+# (data, error) signature, which tests mock. Reasoning tokens are
+# the key question for Call 1 slowness: a simple fact extraction
+# should not spend many reasoning tokens.
+_LAST_LLM_USAGE = {}
+
+
+def _extract_usage(response):
+    """Usage dict from an OpenAI Responses API response, safely.
+
+    Handles attribute and dict access, and missing fields, because
+    usage shape varies by model and by mock in tests.
+    """
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return {}
+    def _get(obj, key, default=None):
+        if obj is None:
+            return default
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
+    details = _get(usage, "output_tokens_details")
+    return {
+        "input_tokens": _get(usage, "input_tokens"),
+        "output_tokens": _get(usage, "output_tokens"),
+        "reasoning_tokens": _get(details, "reasoning_tokens"),
+        "total_tokens": _get(usage, "total_tokens"),
+    }
+
+
 def _call_llm_json(client, model, system_prompt, user_prompt):
     """One LLM call. Returns (parsed_json_or_None, error_or_None).
 
     Never raises for an API/parse failure -- the caller decides whether
     that failure is recoverable (Call 2 fallback) or fatal (Call 1).
+    Usage from the last call is stored in _LAST_LLM_USAGE.
     """
     try:
         response = client.responses.create(
@@ -182,6 +216,8 @@ def _call_llm_json(client, model, system_prompt, user_prompt):
             ],
         )
         text = response.output_text
+        _LAST_LLM_USAGE.clear()
+        _LAST_LLM_USAGE.update(_extract_usage(response))
     except Exception as e:
         return None, f"LLM call failed: {e}"
 
@@ -228,6 +264,9 @@ def get_facts(client, model, report_text):
     if report_text not in user_prompt:
         user_prompt += f"\n\nReport:\n{report_text}"
     data, error = _call_llm_json(client, model, CALL_1_SYSTEM, user_prompt)
+    # Usage is stored globally by _call_llm_json; get_facts itself
+    # keeps its (facts, error) signature, run_pipeline reads the
+    # global after this call to log Call 1 usage.
     if error:
         return [], error
     if not isinstance(data, dict) or not isinstance(data.get("facts"), list):
@@ -580,6 +619,7 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
         {
             "retrieval_seconds": round(retrieval_seconds_total, 2),
             "call2_seconds": call2_seconds,
+            "call2_usage": dict(_LAST_LLM_USAGE),
         },
     )
 
@@ -672,6 +712,7 @@ def run_pipeline(report_text, session_cases=None):
     _call1_start = time.time()
     raw_facts, call1_error = get_facts(client, model, report_text)
     call1_seconds = round(time.time() - _call1_start, 2)
+    call1_usage = dict(_LAST_LLM_USAGE)
     if call1_error:
         errors.append(call1_error)
     if not raw_facts:
@@ -730,6 +771,7 @@ def run_pipeline(report_text, session_cases=None):
     retrieval_log_by_case = {}
     retrieval_seconds = 0.0
     call2_seconds = 0.0
+    call2_usage = {}
     if range_facts:
         (
             recommendations,
@@ -742,6 +784,7 @@ def run_pipeline(report_text, session_cases=None):
         warnings.extend(call2_warnings)
         retrieval_seconds = ai_timings.get("retrieval_seconds", 0.0)
         call2_seconds = ai_timings.get("call2_seconds", 0.0)
+        call2_usage = ai_timings.get("call2_usage", {})
 
     # --- Stage + final ---
     stage = []
@@ -792,6 +835,8 @@ def run_pipeline(report_text, session_cases=None):
         "retrieval_seconds": retrieval_seconds,
         "call2_seconds": call2_seconds,
         "total_seconds": total_seconds,
+        "call1_usage": call1_usage,
+        "call2_usage": call2_usage,
     }
     # Console log, visible in Streamlit Cloud Manage app > Logs, so
     # timing can be checked without opening the Audit expander.
