@@ -526,6 +526,27 @@ def run_pipeline(report_text, session_cases=None):
             "unknown to discipline.json. Check the code in the report."
         )
 
+    # Force a fail on missing identity: a suspension cannot be
+    # approved for "-" team / "-" player, so do not render a table
+    # with blanks. The report must name the player and the team.
+    missing_identity = []
+    for fact in facts:
+        missing = []
+        if not (fact.get("player_name") or "").strip():
+            missing.append("player name")
+        if not (fact.get("team_name") or "").strip():
+            missing.append("team name")
+        if missing:
+            missing_identity.append(
+                f"case {fact.get('case_id', '?')}: missing {' and '.join(missing)}"
+            )
+    if missing_identity:
+        raise PipelineError(
+            "Cannot run this report: it is missing required information. "
+            + "; ".join(missing_identity)
+            + ". Add the player and team names to the report and try again."
+        )
+
     # --- Branch ---
     automatic = [f for f in facts if f["suspension_type"] == "automatic"]
     range_facts = [f for f in facts if f["suspension_type"] == "range"]
@@ -566,6 +587,9 @@ def run_pipeline(report_text, session_cases=None):
             "min_games": fact["min_games"],
             "max_games": fact["max_games"],
             "handbook_section": fact["handbook_section"],
+            # Without this, the app's Handbook Text column showed only
+            # the section number, not the handbook text itself.
+            "handbook_text": fact["handbook_text"],
             "recommended_games": rec_games,
             "recommended_reason": rec_reason,
             "source": source,
