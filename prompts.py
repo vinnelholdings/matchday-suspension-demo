@@ -14,7 +14,6 @@ Return JSON only, matching this schema exactly:
       "player_name": "string, or null if not in the report",
       "team_name": "string, or null if not in the report",
       "misconduct_code": "string, e.g. VC, SFP, OL, 2CT, DH, DF, S",
-      "suspension_type": "string, exactly one of: automatic, range",
       "action": "string, one blob encompassing everything, including context. Must NOT include the player name.",
       "missing_facts": ["string, ..."]
     }
@@ -22,9 +21,10 @@ Return JSON only, matching this schema exactly:
 }
 
 Rules:
-- suspension_type is "automatic" when min_games == max_games
-  in the handbook table, otherwise "range".
-  The range comes from the handbook, not from guessing.
+- Do NOT output suspension_type. The pipeline derives it in code
+  from the handbook (min_games == max_games means automatic,
+  otherwise range). You do not have the handbook table, so do not
+  spend reasoning on it, and do not guess it.
 - If a required fact is not in the report, set that field to null
   and list the fact name in missing_facts. Do not fill it in.
 - action must NOT include the player name. That is the only
