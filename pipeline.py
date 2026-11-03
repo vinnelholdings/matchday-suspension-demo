@@ -902,7 +902,7 @@ def run_pipeline(report_text, session_cases=None):
         "model": model,
         "model_call1": model_call1,
         "model_call2": model,
-        "reasoning_call1": "low",
+        "reasoning_call1": "minimal",
         "reasoning_call2": "medium (default)",
         "rule_version": 1,
         "latency_seconds": total_seconds,
