@@ -240,7 +240,7 @@ with reset_col:
 # players/teams from the matching eval cases.
 MAIN_EXAMPLE = (
     "Alex Carter of Riverside United received a first caution for "
-    "dissent, then a second caution for delaying the restart, and was "
+    "dissent, then a second caution for delaying the restart in the 80th minute, and was "
     "shown a red card for a second caution in the same match. Sent off."
 )
 
