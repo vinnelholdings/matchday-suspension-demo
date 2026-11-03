@@ -335,12 +335,16 @@ def _get_embedding_model():
 def retrieve_top_k(query_action, eval_cases, code, k=3):
     """Top-k same-code eval cases by whole-action semantic similarity.
 
-    Returns (examples_list, error_or_None). Excludes a case identical
-    to the query so eval never retrieves itself. Never raises.
+    Returns (examples_list, error_or_None). Never raises.
     Each example carries a "score" (cosine similarity, 0-1, higher is
     closer) so the app can show, not just claim, why those examples
     were picked. The full log (candidates, scores, model state) is
     built in get_ai_recommendations, which calls this function.
+    NOTE: identical actions are NOT excluded here. An earlier version
+    excluded an identical action so an eval case could not retrieve
+    itself, but that broke the live demo: a session case a human just
+    approved, run again with identical wording, was excluded and
+    never retrieved, which is exactly what the user tested.
     """
     if not query_action or not eval_cases:
         return [], None
@@ -349,7 +353,6 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
         return [], "sentence-transformers not available; retrieval disabled."
 
     candidates = [c for c in eval_cases if c.get("misconduct_code") == code]
-    candidates = [c for c in candidates if c.get("action") != query_action]
     if not candidates:
         return [], None
 
@@ -403,14 +406,11 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
             fact["action"], eval_cases, fact["misconduct_code"], k=3
         )
         examples_by_case[fact["case_id"]] = examples
-        # Candidates are same-code cases only, identical actions excluded,
-        # exactly as retrieve_top_k filters them. This log is computed
-        # here so it stays true even if retrieve_top_k is mocked in tests.
-        same_code = [
-            c for c in eval_cases if c.get("misconduct_code") == fact["misconduct_code"]
-        ]
+        # Candidates are same-code cases only, exactly as
+        # retrieve_top_k filters them. This log is computed here so
+        # it stays true even if retrieve_top_k is mocked in tests.
         candidates_considered = [
-            c for c in same_code if c.get("action") != fact["action"]
+            c for c in eval_cases if c.get("misconduct_code") == fact["misconduct_code"]
         ]
         retrieval_log_by_case[fact["case_id"]] = {
             "query_action": fact["action"],
