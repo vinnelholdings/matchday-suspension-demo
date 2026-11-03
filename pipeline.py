@@ -24,6 +24,7 @@ Error handling in this version:
 
 import json
 import os
+import re
 import time
 
 from prompts import CALL_1_SYSTEM, CALL_1_USER, CALL_2_SYSTEM, CALL_2_USER
@@ -77,6 +78,36 @@ def _safe_int(value, default=None):
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+_MINUTE_PATTERNS = [
+    # "20th minute", "20 minute", "minute 20"
+    re.compile(r"(\d{1,3})(?:st|nd|rd|th)?\s*(?:minute|min)\b", re.IGNORECASE),
+    re.compile(r"\bminute\s*(\d{1,3})\b", re.IGNORECASE),
+    # "20'" as in a match minute
+    re.compile(r"\b(\d{1,3})'\b"),
+]
+
+
+def extract_minute(report_text, fact=None):
+    """Minute a report happened, if the report or the fact gives one.
+
+    Checked against the report text first in run_pipeline: the LLM
+    may drop the minute from its fact even when the report has it,
+    and that must not count as missing. A fact minute is used only
+    when the report text has no minute pattern.
+    """
+    if fact is not None:
+        minute = _safe_int(fact.get("minute"))
+        if minute is not None:
+            return minute
+    if not report_text:
+        return None
+    for pattern in _MINUTE_PATTERNS:
+        match = pattern.search(report_text)
+        if match:
+            return _safe_int(match.group(1))
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +258,7 @@ def _enrich_facts(facts, handbook):
                 "case_id": fact.get("case_id"),
                 "player_name": player_name,
                 "team_name": fact.get("team_name"),
+                "minute": _safe_int(fact.get("minute")),
                 "misconduct_code": code,
                 "suspension_type": "automatic" if min_games == max_games else "range",
                 "action": _strip_player_name(fact.get("action"), player_name),
@@ -305,6 +337,10 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
 
     Returns (examples_list, error_or_None). Excludes a case identical
     to the query so eval never retrieves itself. Never raises.
+    Each example carries a "score" (cosine similarity, 0-1, higher is
+    closer) so the app can show, not just claim, why those examples
+    were picked. The full log (candidates, scores, model state) is
+    built in get_ai_recommendations, which calls this function.
     """
     if not query_action or not eval_cases:
         return [], None
@@ -326,7 +362,7 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
             zip(candidates, scores.tolist()), key=lambda pair: pair[1], reverse=True
         )
         examples = []
-        for case, _score in ranked[:k]:
+        for case, score in ranked[:k]:
             examples.append(
                 {
                     "case_id": case.get("case_id"),
@@ -335,6 +371,7 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
                     "max_games": case.get("max_games"),
                     "expected_games": case.get("expected_games"),
                     "expected_reason": case.get("expected_reason"),
+                    "score": round(float(score), 3),
                 }
             )
         return examples, None
@@ -347,21 +384,43 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
 # ---------------------------------------------------------------------------
 
 def get_ai_recommendations(client, model, range_facts, eval_cases):
-    """Call 2, batched. Returns (recommendations_dict, warnings, retrieval_enabled, examples_by_case).
+    """Call 2, batched. Returns (recommendations_dict, warnings, retrieval_enabled, examples_by_case, retrieval_log_by_case).
 
     recommendations_dict: case_id -> {recommended_games, recommended_reason, source}
     A per-case failure falls back to the handbook minimum, with a
     warning -- it never drops the case.
+    retrieval_log_by_case: case_id -> {query_action, code, model_loaded,
+    candidates_considered, top_examples, error} -- the embedding and
+    similarity steps, shown in the app when retrieval detail is on.
     """
     warnings = []
     retrieval_enabled = False
     examples_by_case = {}
+    retrieval_log_by_case = {}
     cases_json = []
     for fact in range_facts:
         examples, ret_error = retrieve_top_k(
             fact["action"], eval_cases, fact["misconduct_code"], k=3
         )
         examples_by_case[fact["case_id"]] = examples
+        # Candidates are same-code cases only, identical actions excluded,
+        # exactly as retrieve_top_k filters them. This log is computed
+        # here so it stays true even if retrieve_top_k is mocked in tests.
+        same_code = [
+            c for c in eval_cases if c.get("misconduct_code") == fact["misconduct_code"]
+        ]
+        candidates_considered = [
+            c for c in same_code if c.get("action") != fact["action"]
+        ]
+        retrieval_log_by_case[fact["case_id"]] = {
+            "query_action": fact["action"],
+            "code": fact["misconduct_code"],
+            "model_loaded": _MODEL_CACHE["model"] is not None,
+            "candidates_considered": len(candidates_considered),
+            "candidate_case_ids": [c.get("case_id") for c in candidates_considered],
+            "top_examples": examples,
+            "error": ret_error,
+        }
         if examples:
             retrieval_enabled = True
         elif ret_error:
@@ -420,7 +479,7 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
                 "recommended_reason": reason,
                 "source": "AI",
             }
-    return recommendations, warnings, retrieval_enabled, examples_by_case
+    return recommendations, warnings, retrieval_enabled, examples_by_case, retrieval_log_by_case
 
 
 # ---------------------------------------------------------------------------
@@ -526,25 +585,31 @@ def run_pipeline(report_text, session_cases=None):
             "unknown to discipline.json. Check the code in the report."
         )
 
-    # Force a fail on missing identity: a suspension cannot be
-    # approved for "-" team / "-" player, so do not render a table
-    # with blanks. The report must name the player and the team.
-    missing_identity = []
+    # Force a fail on missing required fields: a suspension cannot
+    # be approved for "-" team / "-" player, and a report without a
+    # minute cannot be placed in the match, so do not render a table
+    # with blanks. Every report must have a player name, a team name,
+    # and a minute. The minute is checked against the report text
+    # itself, not just the LLM fact, so a minute the LLM drops still
+    # counts as present.
+    missing_required = []
     for fact in facts:
         missing = []
         if not (fact.get("player_name") or "").strip():
             missing.append("player name")
         if not (fact.get("team_name") or "").strip():
             missing.append("team name")
+        if extract_minute(report_text, fact) is None:
+            missing.append("minute")
         if missing:
-            missing_identity.append(
+            missing_required.append(
                 f"case {fact.get('case_id', '?')}: missing {' and '.join(missing)}"
             )
-    if missing_identity:
+    if missing_required:
         raise PipelineError(
             "Cannot run this report: it is missing required information. "
-            + "; ".join(missing_identity)
-            + ". Add the player and team names to the report and try again."
+            + "; ".join(missing_required)
+            + ". Add the player name, team name, and minute to the report and try again."
         )
 
     # --- Branch ---
@@ -558,12 +623,14 @@ def run_pipeline(report_text, session_cases=None):
     recommendations = {}
     retrieval_enabled = False
     examples_by_case = {}
+    retrieval_log_by_case = {}
     if range_facts:
         (
             recommendations,
             call2_warnings,
             retrieval_enabled,
             examples_by_case,
+            retrieval_log_by_case,
         ) = get_ai_recommendations(client, model, range_facts, eval_cases)
         warnings.extend(call2_warnings)
 
@@ -624,6 +691,7 @@ def run_pipeline(report_text, session_cases=None):
         "stage": stage,
         "final": final,
         "audit": audit,
+        "retrieval_log": retrieval_log_by_case,
         "warnings": warnings,
         "errors": errors,
     }
