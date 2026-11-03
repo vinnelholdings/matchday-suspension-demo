@@ -41,6 +41,7 @@ import streamlit as st
 from pipeline import (
     PipelineError,
     add_to_session_eval,
+    approve,
     load_eval_cases,
     run_pipeline,
 )
@@ -73,14 +74,21 @@ st.markdown(
     .md-header-left { font-size: 18px; font-weight: 600; color: #0C55AC; }
     .md-header-right { font-size: 13px; color: #6B7280; }
 
-    .md-title-block {
-        border-bottom: 1px solid #D1D5DB; padding: 40px 0 16px 0;
-        display: flex; justify-content: space-between; align-items: flex-end; gap: 16px;
+    .md-title-block { border-bottom: 1px solid #D1D5DB; padding: 40px 0 16px 0; }
+    .md-title-row {
+        display: flex; justify-content: space-between; align-items: center; gap: 16px;
     }
     .md-title-block h1 {
         font-size: 18px; font-weight: 600; color: #0C55AC; margin: 0;
     }
     .md-title-block p { font-size: 13px; color: #6B7280; margin: 6px 0 0 0; }
+    /* Streamlit tabs default to red; Matchday's accent is blue. */
+    [data-testid="stTabs"] button[role="tab"] { color: #6B7280; }
+    [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color: #0C55AC !important; border-bottom-color: #0C55AC !important;
+    }
+    [data-baseweb="tab"] { color: #6B7280; }
+    [data-baseweb="tab"][aria-selected="true"] { color: #0C55AC !important; }
     .md-count-pill {
         display: inline-flex; align-items: center; white-space: nowrap;
         border: 1px solid #D1D5DB; background: #FFFFFF; border-radius: 999px;
@@ -199,23 +207,26 @@ st.markdown(
 st.markdown(
     f"""
     <div class="md-title-block">
-        <div>
+        <div class="md-title-row">
             <h1>Approve Suspensions and Fines</h1>
-            <p>Adapted from the Matchday interface I built, rebuilt in Streamlit
-            for this demo. Fines removed. Decision support only &mdash; the
-            pipeline recommends, a human decides.</p>
+            <span class="md-count-pill">{total_count} cases available for retrieval
+            &middot; {preloaded_count} preloaded &middot; {added_count} added this session</span>
         </div>
-        <div><span class="md-count-pill">{total_count} cases available for retrieval
-        &middot; {preloaded_count} preloaded &middot; {added_count} added this session</span></div>
+        <p>Adapted from the Matchday interface I built, rebuilt in Streamlit
+        for this demo. Fines removed. Decision support only &mdash; the
+        pipeline recommends, a human decides.</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-if st.button("Reset session", type="secondary"):
-    st.session_state.session_cases = []
-    st.session_state.last_result = None
-    st.rerun()
+# Reset is demo-only, so keep it small and out of the title block.
+_, reset_col = st.columns([5, 1])
+with reset_col:
+    if st.button("Reset session", type="secondary"):
+        st.session_state.session_cases = []
+        st.session_state.last_result = None
+        st.rerun()
 
 # ---------------------------------------------------------------------------
 # Examples. One written example on the main tab, the rest on a second tab.
@@ -223,35 +234,40 @@ if st.button("Reset session", type="secondary"):
 # an example into the report box or writes their own.
 # ---------------------------------------------------------------------------
 
+# Examples include a player and a team on purpose: the pipeline
+# now fails a report that names neither, instead of rendering a
+# table with "-" for Teams / Player. Names below are the synthetic
+# players/teams from the matching eval cases.
 MAIN_EXAMPLE = (
-    "Received a first caution for dissent, then a second caution for "
-    "delaying the restart, and was shown a red card for a second "
-    "caution in the same match. Sent off."
+    "Alex Carter of Riverside United received a first caution for "
+    "dissent, then a second caution for delaying the restart, and was "
+    "shown a red card for a second caution in the same match. Sent off."
 )
 
 MORE_EXAMPLES = {
     "SYN-009 (S)": (
-        "Spat at an opponent from close range during a stoppage in play. "
-        "Sent off."
+        "Riley Ford of Northgate Athletic spat at an opponent from close "
+        "range during a stoppage in play. Sent off."
     ),
     "SYN-011 (VC)": (
-        "Pushed an opponent in the chest off the ball after a throw-in, "
-        "with no strike and no injury described. Sent off for violent conduct."
+        "Alexis Grant of Riverbend SC pushed an opponent in the chest off "
+        "the ball after a throw-in, with no strike and no injury "
+        "described. Sent off for violent conduct."
     ),
     "SYN-027 (SFP)": (
-        "Made a late tackle from behind, contact to the lower leg, opponent "
-        "stayed down briefly then continued, no injury described. "
-        "Sent off for serious foul play."
+        "Diego Ramos of Riverbend SC made a late tackle from behind, "
+        "contact to the lower leg, opponent stayed down briefly then "
+        "continued, no injury described. Sent off for serious foul play."
     ),
     "SYN-041 (OL)": (
-        'Shouted "fuck you" at an opponent after a foul, one outburst, '
-        "then walked away. No threat, no repetition described. "
-        "Sent off for offensive language."
+        'Ryan Holt of Northgate Athletic shouted "fuck you" at an opponent '
+        "after a foul, one outburst, then walked away. No threat, no "
+        "repetition described. Sent off for offensive language."
     ),
     "SYN-046 (OL)": (
-        'Threatened an opponent after the whistle, saying "I\'ll hurt you '
-        'after the game, just wait", directed and threatening. '
-        "Sent off for offensive language."
+        'Zoe Hart of Eastside Athletic threatened an opponent after the '
+        'whistle, saying "I\'ll hurt you after the game, just wait", '
+        "directed and threatening. Sent off for offensive language."
     ),
 }
 
@@ -414,23 +430,20 @@ with tab_run:
 
     stage_by_case = {row["case_id"]: row for row in stage_rows}
 
+    # One card, as in Matchday: header, table, and footer together,
+    # not three separate blocks with gaps between them.
     st.markdown(
-        """
+        f"""
         <div class="md-card">
             <div class="md-card-header">
                 <div class="md-card-label">Review Suspensions</div>
                 <div class="md-card-subtitle">Compare the incident report, rulebook
                 guidance, and recommendation before approving the final action.</div>
             </div>
+            {build_recommendation_table(final_rows)}
+            <div class="md-card-footer">{len(final_rows)} suspension
+            {'case' if len(final_rows) == 1 else 'cases'} for approval</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown(build_recommendation_table(final_rows), unsafe_allow_html=True)
-    st.markdown(
-        f"""
-        <div class="md-card-footer">{len(final_rows)} suspension
-        {'case' if len(final_rows) == 1 else 'cases'} for approval</div>
         """,
         unsafe_allow_html=True,
     )
@@ -457,49 +470,65 @@ with tab_run:
     run_id = st.session_state.run_id
     for i, final_row in enumerate(final_rows):
         stage_row = stage_by_case.get(final_row["case_id"], {})
-        st.markdown(
-            """
-            <div class="md-final-card">
+        # Bordered container, so Games / Reason / Approve sit INSIDE
+        # the Final Decision card, as in Matchday's editor, instead
+        # of floating below a separate header box.
+        with st.container(border=True):
+            st.markdown(
+                """
                 <div class="md-card-label">Final Decision</div>
                 <div class="md-card-subtitle">Capture the final suspension outcome
                 before approval.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        games_key = f"final_games_{run_id}_{i}"
-        reason_key = f"final_reason_{run_id}_{i}"
-        min_games = int(final_row["min_games"])
-        max_games = int(final_row["max_games"])
-        recommended = int(final_row["recommended_games"])
-        recommended = max(min_games, min(max_games, recommended))
-        col_games, col_reason = st.columns([1, 4])
-        with col_games:
-            final_games = st.number_input(
-                "Games",
-                min_value=min_games,
-                max_value=max_games,
-                value=recommended,
-                key=games_key,
+                """,
+                unsafe_allow_html=True,
             )
-        with col_reason:
-            final_reason = st.text_area(
-                "Reason",
-                value=final_row.get("recommended_reason", ""),
-                key=reason_key,
-            )
-        if st.button(
-            "Approve / Override + Add to session eval", key=f"approve_{run_id}_{i}"
-        ):
-            stage_copy = dict(stage_row)
-            stage_copy["final_games"] = int(final_games)
-            stage_copy["final_reason"] = final_reason
-            add_to_session_eval(st.session_state.session_cases, stage_copy, facts[i])
-            st.success(
-                "Added to session eval. "
-                f"Session total is now {preloaded_count + len(st.session_state.session_cases)} cases."
-            )
-            st.rerun()
+            games_key = f"final_games_{run_id}_{i}"
+            reason_key = f"final_reason_{run_id}_{i}"
+            min_games = int(final_row["min_games"])
+            max_games = int(final_row["max_games"])
+            recommended = int(final_row["recommended_games"])
+            recommended = max(min_games, min(max_games, recommended))
+            col_games, col_reason = st.columns([1, 4])
+            with col_games:
+                # Selectbox, not number_input: the deployed app hit
+                # "Failed to fetch dynamically imported module: .../NumberInput....js"
+                # on the number_input widget, and a games range is only
+                # 1-4 options anyway, so a dropdown is the better control.
+                final_games = st.selectbox(
+                    "Games",
+                    options=list(range(min_games, max_games + 1)),
+                    index=recommended - min_games,
+                    key=games_key,
+                )
+            with col_reason:
+                final_reason = st.text_area(
+                    "Reason",
+                    value=final_row.get("recommended_reason", ""),
+                    key=reason_key,
+                )
+            if st.button(
+                "Approve / Override + Add to session eval", key=f"approve_{run_id}_{i}"
+            ):
+                stage_copy = dict(stage_row)
+                stage_copy["final_games"] = int(final_games)
+                stage_copy["final_reason"] = final_reason
+                add_to_session_eval(
+                    st.session_state.session_cases, stage_copy, facts[i]
+                )
+                # Write the decision back into last_result. Without
+                # this, Final JSON kept showing final_games: null and
+                # status: "pending" after an approval, because the
+                # expander was reading the pre-approval rows.
+                st.session_state.last_result["final"][i] = approve(
+                    final_row,
+                    final_games=int(final_games),
+                    final_reason=final_reason,
+                )
+                st.success(
+                    "Added to session eval. "
+                    f"Session total is now {preloaded_count + len(st.session_state.session_cases)} cases."
+                )
+                st.rerun()
 
     # Demo detail, tucked away so the main page reads like Matchday.
     with st.expander("Stage, final and audit (demo detail)"):
