@@ -190,6 +190,25 @@ preloaded_count = len(preloaded_cases)
 added_count = len(st.session_state.session_cases)
 total_count = preloaded_count + added_count
 
+# load_eval_cases() silently returns [] when the file is missing or
+# invalid, which is why "0 preloaded" gave no clue. Surface the reason
+# on the page instead, so a Cloud deployment that cannot see the
+# file says so plainly instead of silently running with no examples.
+if preloaded_count == 0:
+    try:
+        with open("eval_cases.json", "r", encoding="utf-8") as _f:
+            _data = json.load(_f)
+        _reason = "file loaded but it contains no cases"
+    except FileNotFoundError:
+        _reason = "eval_cases.json was not found in the app folder"
+    except json.JSONDecodeError as _e:
+        _reason = f"eval_cases.json is not valid JSON: {_e}"
+    st.warning(
+        "Preloaded eval cases: 0. "
+        f"{_reason}. Check that eval_cases.json is in the GitHub repo root, "
+        "next to app.py, on the branch the Cloud app points to, then Reboot."
+    )
+
 # ---------------------------------------------------------------------------
 # Header bar (no logo) + title block, as on the suspensions page
 # ---------------------------------------------------------------------------
@@ -228,6 +247,17 @@ with reset_col:
         st.session_state.last_result = None
         st.rerun()
 
+# Preloaded cases, visible instead of just a count, collapsed by
+# default so the main page stays clean. This is the same list
+# retrieval searches, so 0 here means retrieval has nothing to search.
+if preloaded_count > 0:
+    with st.expander(f"Preloaded cases ({preloaded_count})"):
+        for case in preloaded_cases:
+            st.write(
+                f"{case.get('case_id')}: {case.get('misconduct_code')} -- "
+                f"{case.get('expected_games')} games"
+            )
+
 # ---------------------------------------------------------------------------
 # Examples. One written example on the main tab, the rest on a second tab.
 # Written out as text on purpose: no example buttons, the user copies
@@ -239,35 +269,35 @@ with reset_col:
 # table with "-" for Teams / Player. Names below are the synthetic
 # players/teams from the matching eval cases.
 MAIN_EXAMPLE = (
-    "Alex Carter of Riverside United received a first caution for "
-    "dissent, then a second caution for delaying the restart in the 80th minute, and was "
-    "shown a red card for a second caution in the same match. Sent off."
+    "In the 20th minute, Alex Carter of Riverside United received a first "
+    "caution for dissent, then a second caution for delaying the restart, "
+    "and was shown a red card for a second caution in the same match. Sent off."
 )
 
 MORE_EXAMPLES = {
     "SYN-009 (S)": (
-        "Riley Ford of Northgate Athletic spat at an opponent from close "
-        "range during a stoppage in play. Sent off."
+        "In the 76th minute, Riley Ford of Northgate Athletic spat at an "
+        "opponent from close range during a stoppage in play. Sent off."
     ),
     "SYN-011 (VC)": (
-        "Alexis Grant of Riverbend SC pushed an opponent in the chest off "
-        "the ball after a throw-in, with no strike and no injury "
-        "described. Sent off for violent conduct."
+        "In the 25th minute, Alexis Grant of Riverbend SC pushed an opponent "
+        "in the chest off the ball after a throw-in, with no strike and no "
+        "injury described. Sent off for violent conduct."
     ),
     "SYN-027 (SFP)": (
-        "Diego Ramos of Riverbend SC made a late tackle from behind, "
-        "contact to the lower leg, opponent stayed down briefly then "
-        "continued, no injury described. Sent off for serious foul play."
+        "In the 72nd minute, Diego Ramos of Riverbend SC made a late tackle "
+        "from behind, contact to the lower leg, opponent stayed down briefly "
+        "then continued, no injury described. Sent off for serious foul play."
     ),
     "SYN-041 (OL)": (
-        'Ryan Holt of Northgate Athletic shouted "fuck you" at an opponent '
-        "after a foul, one outburst, then walked away. No threat, no "
-        "repetition described. Sent off for offensive language."
+        'In the 40th minute, Ryan Holt of Northgate Athletic shouted "fuck you" '
+        "at an opponent after a foul, one outburst, then walked away. No threat, "
+        "no repetition described. Sent off for offensive language."
     ),
     "SYN-046 (OL)": (
-        'Zoe Hart of Eastside Athletic threatened an opponent after the '
-        'whistle, saying "I\'ll hurt you after the game, just wait", '
-        "directed and threatening. Sent off for offensive language."
+        'In the 75th minute, Zoe Hart of Eastside Athletic threatened an '
+        'opponent after the whistle, saying "I\'ll hurt you after the game, '
+        'just wait", directed and threatening. Sent off for offensive language.'
     ),
 }
 
@@ -292,11 +322,17 @@ def build_recommendation_table(final_rows):
 
     rows_html = []
     for row in final_rows:
-        badge = (
-            "DETERMINISTIC"
-            if row.get("suspension_type") == "automatic"
-            else "LLM"
-        )
+        # Plain language on screen, technical source values stay in
+        # the JSON. Option C, chosen by Emmy: "Set by the rulebook"
+        # and "Suggested by AI". Fallback cases are NOT suggested by
+        # AI: the AI failed and the number came from the rulebook
+        # minimum, so the badge is based on source, not on case type.
+        if row.get("source") == "Automatic":
+            badge = "Set by the rulebook"
+        elif row.get("source") == "fallback_minimum":
+            badge = "Rulebook minimum"
+        else:
+            badge = "Suggested by AI"
         handbook = (
             f"{html.escape(str(row.get('handbook_section') or ''))}: "
             f"{html.escape(str(row.get('handbook_text') or ''))}"
@@ -463,6 +499,37 @@ with tab_run:
                     f"- {example.get('case_id')}: {example.get('expected_games')} games -- "
                     f"{example.get('expected_reason')}"
                 )
+
+    # Retrieval log, off by default. When on, it shows how retrieval
+    # actually worked for each range case: the query action, whether
+    # the embedding model loaded, how many same-code candidates were
+    # considered, and the top examples with their similarity scores
+    # (0-1, higher is closer). Automatic cases have no retrieval log.
+    retrieval_log = result.get("retrieval_log", {})
+    if retrieval_log:
+        show_retrieval = st.checkbox(
+            "Show retrieval detail", key=f"show_retrieval_{st.session_state.run_id}"
+        )
+        if show_retrieval:
+            for case_id, log in retrieval_log.items():
+                with st.expander(f"Retrieval detail: {case_id}"):
+                    st.write(f"Query action: {log.get('query_action')}")
+                    st.write(f"Code searched: {log.get('code')}")
+                    st.write(f"Embedding model loaded: {log.get('model_loaded')}")
+                    st.write(
+                        f"Candidates considered (same code, identical action excluded): "
+                        f"{log.get('candidates_considered')}"
+                    )
+                    if log.get("error"):
+                        st.write(f"Retrieval error: {log.get('error')}")
+                    for example in log.get("top_examples", []):
+                        st.write(
+                            f"- {example.get('case_id')}: score {example.get('score')} -- "
+                            f"{example.get('expected_games')} games -- "
+                            f"{example.get('expected_reason')}"
+                        )
+                    if not log.get("top_examples"):
+                        st.write("No examples retrieved for this case.")
 
     # Human decision, per case: the Matchday Final Decision editor,
     # open after a run. Keys include run_id so a new run starts fresh
