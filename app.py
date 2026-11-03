@@ -500,36 +500,38 @@ with tab_run:
                     f"{example.get('expected_reason')}"
                 )
 
-    # Retrieval log, off by default. When on, it shows how retrieval
-    # actually worked for each range case: the query action, whether
-    # the embedding model loaded, how many same-code candidates were
-    # considered, and the top examples with their similarity scores
-    # (0-1, higher is closer). Automatic cases have no retrieval log.
+    # Retrieval log, collapsed by default in an expander, NOT a
+    # checkbox. The checkbox version hit the same Cloud chunk error
+    # as NumberInput and Selectbox before it: "Failed to fetch
+    # dynamically imported module: .../Checkbox....js". Expander was
+    # already in the original app (Stage/Final/Audit), so its chunk
+    # is already loaded, and no new widget chunk is requested at all.
+    # The log shows how retrieval actually worked for each range
+    # case: query action, whether the embedding model loaded, how
+    # many same-code candidates were considered, and top examples
+    # with similarity scores (0-1, higher is closer). Automatic
+    # cases have no retrieval log.
     retrieval_log = result.get("retrieval_log", {})
     if retrieval_log:
-        show_retrieval = st.checkbox(
-            "Show retrieval detail", key=f"show_retrieval_{st.session_state.run_id}"
-        )
-        if show_retrieval:
-            for case_id, log in retrieval_log.items():
-                with st.expander(f"Retrieval detail: {case_id}"):
-                    st.write(f"Query action: {log.get('query_action')}")
-                    st.write(f"Code searched: {log.get('code')}")
-                    st.write(f"Embedding model loaded: {log.get('model_loaded')}")
+        for case_id, log in retrieval_log.items():
+            with st.expander(f"Retrieval detail: {case_id}"):
+                st.write(f"Query action: {log.get('query_action')}")
+                st.write(f"Code searched: {log.get('code')}")
+                st.write(f"Embedding model loaded: {log.get('model_loaded')}")
+                st.write(
+                    f"Candidates considered (same code): "
+                    f"{log.get('candidates_considered')}"
+                )
+                if log.get("error"):
+                    st.write(f"Retrieval error: {log.get('error')}")
+                for example in log.get("top_examples", []):
                     st.write(
-                        f"Candidates considered (same code, identical action excluded): "
-                        f"{log.get('candidates_considered')}"
+                        f"- {example.get('case_id')}: score {example.get('score')} -- "
+                        f"{example.get('expected_games')} games -- "
+                        f"{example.get('expected_reason')}"
                     )
-                    if log.get("error"):
-                        st.write(f"Retrieval error: {log.get('error')}")
-                    for example in log.get("top_examples", []):
-                        st.write(
-                            f"- {example.get('case_id')}: score {example.get('score')} -- "
-                            f"{example.get('expected_games')} games -- "
-                            f"{example.get('expected_reason')}"
-                        )
-                    if not log.get("top_examples"):
-                        st.write("No examples retrieved for this case.")
+                if not log.get("top_examples"):
+                    st.write("No examples retrieved for this case.")
 
     # Human decision, per case: the Matchday Final Decision editor,
     # open after a run. Keys include run_id so a new run starts fresh
