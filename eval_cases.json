@@ -687,6 +687,6 @@
       "action": "Directed repeated offensive gestures and profanity at an opponent in front of spectators, shouting \"fuck off\" repeatedly, continuing after being warned.",
       "expected_games": 2,
       "expected_reason": "Repeated offensive gestures and profanity in front of spectators, shouting \"fuck off\" repeatedly and continuing after being warned, combines repetition, a public setting, and ignoring a warning, so 2 games is justified."
-    },
+    }
   ]
 }
