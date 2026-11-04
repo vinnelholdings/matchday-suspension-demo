@@ -103,6 +103,8 @@ When recommending above the minimum but below the maximum, you MUST explain BOTH
 Severity guidance:
 
 * For VC (violent conduct), increase severity when the act is clearly deliberate and aggressive. This includes punching, striking, kicking out, stomping, headbutting, retaliation, off-the-ball conduct, repeated actions, or forceful contact. Contact to vulnerable areas (face, head, neck, throat) or evidence of injury or treatment increases severity further.
+* Wording alone is not severity. Do not treat a change in wording or verb alone as a change in severity. If the facts are otherwise the same — same act, same target area, same force, same repetition, same injury — the games should be the same. Judge severity by those facts and by retrieved cases, not by word choice.
+* If all retrieved examples agree on games, recommend that number unless the current facts clearly differ from those examples.
 
 * For SFP (serious foul play), increase severity when the challenge is dangerous or uncontrolled. This includes exposed studs, lunging, high or forceful contact (especially to shin, knee, ankle), excessive force, or actions that endanger safety. Injury or inability to continue increases severity further.
 
@@ -114,13 +116,14 @@ Severity guidance:
 
 * Move to the maximum only when the action clearly shows strong aggravating facts or a serious outcome.
 
+
 ---
 
 Examples of strong reasoning style:
 
 * "The player threw a closed-fist punch to the opponent's face away from play, which is deliberate violent conduct to a vulnerable area, so 4 games is justified."
 
-* "The player deliberately shoved an opponent off the ball, but there is no strike to the face or injury described, so the minimum of 2 games is appropriate."
+* "The player deliberately made contact with an opponent off the ball, but there is no strike to the face or injury described, so the minimum of 2 games is appropriate."
 
 * "The player swung an arm away from play and made forceful contact, which increases severity, but without contact to the face or injury described, a 3-game suspension fits."
 
