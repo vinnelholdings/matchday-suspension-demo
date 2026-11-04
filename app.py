@@ -3,7 +3,7 @@
 Rebuilt to look like the Matchday assignor suspensions page
 (frontend/app/assignor/suspensions/page.tsx), not like a default
 Streamlit page: light-gray page background, white bordered cards,
-the #0C55AC blue theme, the "Approve Suspensions and Fines" title
+the #0C55AC blue theme, the "Approve Suspensions" title
 block, a table for the recommendation, and a "Final Decision" editor
 card for the human decision.
 
@@ -247,16 +247,12 @@ with reset_col:
         st.session_state.last_result = None
         st.rerun()
 
-# Preloaded cases, visible instead of just a count, collapsed by
-# default so the main page stays clean. This is the same list
-# retrieval searches, so 0 here means retrieval has nothing to search.
-if preloaded_count > 0:
-    with st.expander(f"Preloaded cases ({preloaded_count})"):
-        for case in preloaded_cases:
-            st.write(
-                f"{case.get('case_id')}: {case.get('misconduct_code')} -- "
-                f"{case.get('expected_games')} games"
-            )
+# Preloaded cases are NOT listed here anymore. The old expander
+# only showed "SYN-001: 2CT -- 1 games", no action, no reason,
+# which told a reviewer nothing. The full list lives in its own
+# tab below, with action, games, and reason for every case.
+# This is the same list retrieval searches, so 0 here means
+# retrieval has nothing to search.
 
 # ---------------------------------------------------------------------------
 # Examples. One written example on the main tab, the rest on a second tab.
@@ -369,8 +365,8 @@ def build_recommendation_table(final_rows):
     )
 
 
-tab_run, tab_examples, tab_logs = st.tabs(
-    ["Run a report", "More examples", "Logs"]
+tab_run, tab_examples, tab_preloaded, tab_logs = st.tabs(
+    ["Run a report", "More examples", "Preloaded cases", "Logs"]
 )
 
 with tab_examples:
@@ -394,6 +390,59 @@ with tab_examples:
                 <div>{html.escape(text)}</div>
             </div></div>
             """,
+            unsafe_allow_html=True,
+        )
+
+with tab_preloaded:
+    st.markdown(
+        """
+        <div class="md-card">
+            <div class="md-card-header">
+                <div class="md-card-label">Preloaded cases</div>
+                <div class="md-card-subtitle">Synthetic cases only, read-only.
+                This is the list retrieval searches. Session cases you add
+                are not listed here, they show in the count pill above.</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if preloaded_count == 0:
+        st.info("No preloaded cases loaded. See the warning above.")
+    else:
+        # Summary counts, computed from the loaded list, never
+        # hard-coded, so 49 versus 50 stays correct automatically.
+        _counts = {}
+        for _case in preloaded_cases:
+            _code = _case.get("misconduct_code") or "-"
+            _counts[_code] = _counts.get(_code, 0) + 1
+        _summary = " &middot; ".join(
+            f"{_code}: {_counts[_code]}" for _code in sorted(_counts)
+        )
+        st.markdown(
+            f"<div style=\"font-size: 13px; color: #4B5563; margin-top: 12px;\">"
+            f"{preloaded_count} preloaded cases &mdash; {_summary}</div>",
+            unsafe_allow_html=True,
+        )
+        _rows = []
+        for _case in preloaded_cases:
+            _rows.append(
+                "<tr>"
+                f"<td>{html.escape(str(_case.get('case_id') or '-'))}</td>"
+                f"<td><span class=\"md-code-badge\">{html.escape(str(_case.get('misconduct_code') or '-'))}</span></td>"
+                f"<td>{html.escape(str(_case.get('action') or '-'))}</td>"
+                f"<td class=\"md-recommended\">{html.escape(str(_case.get('expected_games')))} "
+                f"{'game' if _case.get('expected_games') == 1 else 'games'}</td>"
+                f"<td>{html.escape(str(_case.get('expected_reason') or ''))}</td>"
+                "</tr>"
+            )
+        st.markdown(
+            "<div class=\"md-card\">"
+            "<table class=\"md-table\">"
+            "<thead><tr>"
+            "<th>Case</th><th>Code</th><th>Action</th><th>Games</th><th>Reason</th>"
+            "</tr></thead>"
+            "<tbody>" + "".join(_rows) + "</tbody></table></div>",
             unsafe_allow_html=True,
         )
 
@@ -448,14 +497,13 @@ with tab_logs:
         for _case_id, _log in (_log_result.get("retrieval_log", {}) or {}).items():
             st.info(f"Retrieval for {_case_id}: code {_log.get('code')}, "
                     f"candidates {_log.get('candidates_considered')}, "
-                    f"model loaded {_log.get('model_loaded')}.")
+                    f"method {_log.get('retrieval_method', 'embedding')}.")
             if _log.get("embedding"):
                 _emb = _log["embedding"]
                 st.info(
-                    f"Embedding for {_case_id}: model load {_emb.get('model_load_seconds')}s "
-                    f"(cached: {_emb.get('model_was_cached')}), query encode {_emb.get('query_encode_seconds')}s, "
-                    f"docs encode {_emb.get('docs_encode_seconds')}s for {_emb.get('docs_encoded')} docs, "
-                    f"similarity {_emb.get('similarity_seconds')}s."
+                    f"Retrieval for {_case_id} ({_emb.get('method', 'embedding')}): "
+                    f"similarity {_emb.get('similarity_seconds')}s for {_emb.get('docs_encoded')} docs, "
+                    f"no local model load (OpenAI API embeddings)."
                 )
             for _example in _log.get("top_examples", []):
                 _boost = _example.get("session_boost", 0.0) or 0.0
@@ -488,7 +536,7 @@ with tab_run:
     st.markdown(
         f"""
         <div class="md-example" style="margin-top: 16px;">
-            <div class="md-example-label">Example &mdash; second caution, sent off</div>
+            <div class="md-example-label">Example &mdash; violent conduct, sent off</div>
             <div>{html.escape(MAIN_EXAMPLE)}</div>
         </div>
         """,
@@ -592,7 +640,7 @@ with tab_run:
             with st.expander(f"Retrieval detail: {case_id}"):
                 st.write(f"Query action: {log.get('query_action')}")
                 st.write(f"Code searched: {log.get('code')}")
-                st.write(f"Embedding model loaded: {log.get('model_loaded')}")
+                st.write(f"Retrieval method: {log.get('retrieval_method', 'embedding')}")
                 st.write(
                     f"Candidates considered (same code): "
                     f"{log.get('candidates_considered')}"
@@ -602,10 +650,9 @@ with tab_run:
                 if log.get("embedding"):
                     _emb = log["embedding"]
                     st.write(
-                        f"Embedding timing (seconds): model load {_emb.get('model_load_seconds')} "
-                        f"(cached: {_emb.get('model_was_cached')}), query encode {_emb.get('query_encode_seconds')}, "
-                        f"docs encode {_emb.get('docs_encode_seconds')} for {_emb.get('docs_encoded')} docs, "
-                        f"similarity {_emb.get('similarity_seconds')}"
+                        f"Retrieval timing (seconds, {_emb.get('method', 'embedding')}): "
+                        f"similarity {_emb.get('similarity_seconds')} for {_emb.get('docs_encoded')} docs, "
+                        f"no local model load (OpenAI API embeddings)."
                     )
                 for example in log.get("top_examples", []):
                     _boost = example.get("session_boost", 0.0) or 0.0
