@@ -269,9 +269,9 @@ if preloaded_count > 0:
 # table with "-" for Teams / Player. Names below are the synthetic
 # players/teams from the matching eval cases.
 MAIN_EXAMPLE = (
-    "In the 20th minute, Alex Carter of Riverside United received a first "
-    "caution for dissent, then a second caution for delaying the restart, "
-    "and was shown a red card for a second caution in the same match. Sent off."
+    "In the 20th minute, Alex Carter of Riverside United "
+    "was sent off for slapping an opponent in the face, "
+    "and was shown a red card. Sent off."
 )
 
 MORE_EXAMPLES = {
