@@ -217,7 +217,7 @@ st.markdown(
     """
     <div class="md-header">
         <div class="md-header-left">Matchday Suspension Demo</div>
-        <div class="md-header-right">Demo &middot; Synthetic cases only</div>
+        <div class="md-header-right">Demo &middot;</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -227,7 +227,7 @@ st.markdown(
     f"""
     <div class="md-title-block">
         <div class="md-title-row">
-            <h1>Approve Suspensions and Fines</h1>
+            <h1>Approve Suspensions</h1>
             <span class="md-count-pill">{total_count} cases available for retrieval
             &middot; {preloaded_count} preloaded &middot; {added_count} added this session</span>
         </div>
