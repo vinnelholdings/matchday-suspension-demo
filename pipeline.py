@@ -24,6 +24,7 @@ Error handling in this version:
 
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -170,9 +171,9 @@ def _get_client():
 
     if not api_key:
         raise PipelineError(
-            "OPENAI_API_KEY is missing. Add it in Streamlit Cloud: "
-            "app Settings > Secrets, as OPENAI_API_KEY = \"sk-...\", "
-            "then reboot the app."
+            "OPENAI_API_KEY is missing. Add it as an environment "
+            "variable (Render: service > Environment, or Streamlit "
+            "Cloud: app Settings > Secrets), then redeploy / reboot."
         )
 
     try:
@@ -227,7 +228,7 @@ def _call_llm_json(client, model, system_prompt, user_prompt, reasoning_effort=N
     Usage from the last call is stored in _LAST_LLM_USAGE.
     reasoning_effort is None by default, meaning do not pass the
     reasoning parameter at all, so the API uses its default medium.
-    Pass "low" only for Call 1, the light_model extraction call.
+    Pass "minimal" only for Call 1, the light_model extraction call.
     """
     try:
         _kwargs = {}
@@ -256,6 +257,12 @@ def _call_llm_json(client, model, system_prompt, user_prompt, reasoning_effort=N
 # ---------------------------------------------------------------------------
 # Call 1: classify + extract
 # ---------------------------------------------------------------------------
+
+# Single source of truth for Call 1 reasoning effort. Both the
+# actual API call in get_facts and the audit log in run_pipeline
+# use this constant, so the log can never say "low" when the call
+# actually ran "minimal" (or vice versa) after a one-place edit.
+CALL1_REASONING_EFFORT = "minimal"
 
 def _strip_player_name(action, player_name):
     """Remove the player name from the action text, in code.
@@ -290,12 +297,18 @@ def get_facts(client, model, report_text):
     )
     if report_text not in user_prompt:
         user_prompt += f"\n\nReport:\n{report_text}"
-    # Low reasoning for light_model only: nano at default medium used
-    # 1408 reasoning tokens for Call 1 (Nov 3 run), versus 512-576 on
-    # gpt-5, so the model change alone did not speed Call 1 up.
-    # Call 2 keeps the default medium reasoning, unchanged.
+    # Minimal reasoning for light_model only: nano at default medium
+    # used 1408 reasoning tokens for Call 1 (Nov 3 run), versus
+    # 512-576 on gpt-5, so the model change alone did not speed
+    # Call 1 up. Call 2 keeps the default medium reasoning,
+    # unchanged. Effort comes from CALL1_REASONING_EFFORT above,
+    # so the audit log always matches the actual call.
     data, error = _call_llm_json(
-        client, model, CALL_1_SYSTEM, user_prompt, reasoning_effort="minimal"
+        client,
+        model,
+        CALL_1_SYSTEM,
+        user_prompt,
+        reasoning_effort=CALL1_REASONING_EFFORT,
     )
     # Usage is stored globally by _call_llm_json; get_facts itself
     # keeps its (facts, error) signature, run_pipeline reads the
@@ -396,52 +409,65 @@ def load_eval_cases(path="eval_cases.json"):
     return data if isinstance(data, list) else []
 
 
-# Embedding model cache: loaded once per process, not once per run.
-# Streamlit reruns app.py top-to-bottom on every interaction, but imported
-# modules persist, so this singleton survives reruns. Without it, torch +
-# the model reload on every Run click -- slow, and repeated allocation
-# on a ~1GB Streamlit Cloud free instance.
-# Note: this fixes reload cost, not peak memory. The model still loads
-# in full on the first range case; if that alone OOMs, retrieval fails
-# gracefully (see retrieve_top_k) rather than crashing the pipeline.
-_MODEL_CACHE = {"model": None, "util": None, "failed": False}
+# OpenAI embeddings retrieval, Nov 4 Render pivot: semantic
+# retrieval is core to the demo, word-overlap was rejected, and
+# local torch embeddings OOM'd a 512 MB Render $7 instance.
+# So retrieval uses OpenAI's embeddings API (text-embedding-3-small,
+# 1,536 dims) instead of a local model: no sentence-transformers,
+# no torch, no model download, just an HTTP call plus cosine math
+# in pure Python. Query and docs must use the SAME embedding model
+# -- vectors from different models are not comparable.
+# Doc embeddings are cached per process keyed on (case_id, action),
+# so a run only embeds the query, not all 50 cases again, unless
+# the case list changed (e.g. a session case was added).
+OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
+_DOC_EMBEDDING_CACHE = {"key": None, "vectors": None}
 
 
-def _get_embedding_model():
-    """Lazy-load sentence-transformers, cached. Returns (model, util) or (None, None)."""
-    if _MODEL_CACHE["model"] is not None:
-        return _MODEL_CACHE["model"], _MODEL_CACHE["util"]
-    if _MODEL_CACHE["failed"]:
-        return None, None
-    try:
-        from sentence_transformers import SentenceTransformer, util
-
-        model = SentenceTransformer("all-MiniLM-L6-v2")
-        _MODEL_CACHE["model"] = model
-        _MODEL_CACHE["util"] = util
-        return model, util
-    except Exception:
-        # Remember the failure so we don't retry (and re-pay) every run.
-        _MODEL_CACHE["failed"] = True
-        return None, None
+def _cosine_similarity(a, b):
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return dot / (norm_a * norm_b)
 
 
-# Last embedding timing, read by get_ai_recommendations so the
-# app can log it next to the embeddings themselves. This is timing
-# only, not a speed fix: it splits retrieval into model load, query
-# encode, docs encode, and similarity, so we can see if embeddings
-# are overkill before replacing them with something faster.
+def _embed_texts(client, texts):
+    """Embed texts via the OpenAI embeddings API. Returns list of vectors.
+
+    Client is the OpenAI client from _get_client(); if None is passed,
+    _get_client() is tried. Separated out so tests / harnesses can
+    monkey-patch this one function instead of the whole retrieval.
+    """
+    if client is None:
+        client = _get_client()
+    model = _get_config("embedding_model", OPENAI_EMBEDDING_MODEL)
+    response = client.embeddings.create(model=model, input=texts)
+    vectors = []
+    for item in response.data:
+        emb = getattr(item, "embedding", None)
+        if emb is None and isinstance(item, dict):
+            emb = item.get("embedding")
+        vectors.append([float(x) for x in emb])
+    return vectors
+
+
+# Last retrieval timing, read by get_ai_recommendations so the app
+# can log it. Kept under the old _LAST_EMBEDDING_TIMING name so the
+# app's Logs tab keeps working; model fields are 0.0 / False because
+# there is no local model to load anymore, and "method" says so plainly.
 _LAST_EMBEDDING_TIMING = {}
 
 
-def retrieve_top_k(query_action, eval_cases, code, k=3):
-    """Top-k same-code eval cases by whole-action semantic similarity.
+def retrieve_top_k(query_action, eval_cases, code, k=3, client=None):
+    """Top-k same-code eval cases by OpenAI embedding cosine similarity.
 
     Returns (examples_list, error_or_None). Never raises.
     Each example carries a "score" (cosine similarity, 0-1, higher is
     closer) so the app can show, not just claim, why those examples
-    were picked. The full log (candidates, scores, model state) is
-    built in get_ai_recommendations, which calls this function.
+    were picked. The full log (candidates, scores) is built in
+    get_ai_recommendations, which calls this function.
     NOTE: identical actions are NOT excluded here. An earlier version
     excluded an identical action so an eval case could not retrieve
     itself, but that broke the live demo: a session case a human just
@@ -450,54 +476,45 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
     """
     if not query_action or not eval_cases:
         return [], None
-    _emb_start = time.time()
-    _model_was_cached = _MODEL_CACHE["model"] is not None
-    model, util = _get_embedding_model()
-    model_load_seconds = round(time.time() - _emb_start, 2)
-    if model is None:
-        _LAST_EMBEDDING_TIMING.clear()
-        _LAST_EMBEDDING_TIMING.update(
-            {
-                "model_was_cached": _model_was_cached,
-                "model_load_seconds": model_load_seconds,
-                "query_encode_seconds": 0.0,
-                "docs_encode_seconds": 0.0,
-                "similarity_seconds": 0.0,
-                "docs_encoded": 0,
-                "error": "sentence-transformers not available; retrieval disabled.",
-            }
-        )
-        return [], "sentence-transformers not available; retrieval disabled."
-
     candidates = [c for c in eval_cases if c.get("misconduct_code") == code]
     if not candidates:
         return [], None
 
     try:
         _t = time.time()
-        query_emb = model.encode(query_action, convert_to_tensor=True)
-        query_encode_seconds = round(time.time() - _t, 2)
-        docs = [c.get("action", "") for c in candidates]
-        _t = time.time()
-        doc_emb = model.encode(docs, convert_to_tensor=True)
-        docs_encode_seconds = round(time.time() - _t, 2)
-        _t = time.time()
-        scores = util.cos_sim(query_emb, doc_emb)[0]
+        query_vector = _embed_texts(client, [query_action])[0]
+        doc_key = tuple(
+            (c.get("case_id"), c.get("action", "")) for c in candidates
+        )
+        if _DOC_EMBEDDING_CACHE["key"] != doc_key:
+            _DOC_EMBEDDING_CACHE["key"] = doc_key
+            _DOC_EMBEDDING_CACHE["vectors"] = _embed_texts(
+                client, [c.get("action", "") for c in candidates]
+            )
+        doc_vectors = _DOC_EMBEDDING_CACHE["vectors"]
+        ranked = sorted(
+            (
+                (case, _cosine_similarity(query_vector, doc_vector))
+                for case, doc_vector in zip(candidates, doc_vectors)
+            ),
+            key=lambda pair: pair[1],
+            reverse=True,
+        )
         similarity_seconds = round(time.time() - _t, 2)
         _LAST_EMBEDDING_TIMING.clear()
         _LAST_EMBEDDING_TIMING.update(
             {
-                "model_was_cached": _model_was_cached,
-                "model_load_seconds": model_load_seconds,
-                "query_encode_seconds": query_encode_seconds,
-                "docs_encode_seconds": docs_encode_seconds,
+                "method": "openai-embeddings",
+                "model": _get_config("embedding_model", OPENAI_EMBEDDING_MODEL),
+                "model_was_cached": False,
+                "model_load_seconds": 0.0,
+                "query_encode_seconds": 0.0,
+                "docs_encode_seconds": 0.0,
                 "similarity_seconds": similarity_seconds,
-                "docs_encoded": len(docs),
+                "docs_encoded": len(candidates),
+                "docs_cached": _DOC_EMBEDDING_CACHE["key"] == doc_key,
                 "error": None,
             }
-        )
-        ranked = sorted(
-            zip(candidates, scores.tolist()), key=lambda pair: pair[1], reverse=True
         )
         # Demo-only bias: human-added session cases are weighed
         # higher than pre-seed cases, by +0.10, capped at 1.0, and
@@ -540,6 +557,14 @@ def retrieve_top_k(query_action, eval_cases, code, k=3):
 # Call 2: range recommendation (action only)
 # ---------------------------------------------------------------------------
 
+# Test-only constant, same pattern as Call 1: single source of truth
+# for Call 2 reasoning, used both by the API call and by the audit
+# log, so the log can never go stale. Currently "low" for the
+# nano-at-low test. To revert to the previous default, change this
+# back to None (meaning do not pass reasoning, API uses medium)
+# and set full_model back to gpt-5 in Secrets.
+CALL2_REASONING_EFFORT = "low"
+
 def get_ai_recommendations(client, model, range_facts, eval_cases):
     """Call 2, batched. Returns (recommendations_dict, warnings, retrieval_enabled, examples_by_case, retrieval_log_by_case, timings).
 
@@ -561,7 +586,7 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
     for fact in range_facts:
         _ret_start = time.time()
         examples, ret_error = retrieve_top_k(
-            fact["action"], eval_cases, fact["misconduct_code"], k=3
+            fact["action"], eval_cases, fact["misconduct_code"], k=3, client=client
         )
         _ret_seconds = round(time.time() - _ret_start, 2)
         retrieval_seconds_total += _ret_seconds
@@ -575,14 +600,14 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
         retrieval_log_by_case[fact["case_id"]] = {
             "query_action": fact["action"],
             "code": fact["misconduct_code"],
-            "model_loaded": _MODEL_CACHE["model"] is not None,
+            "retrieval_method": "openai-embeddings",
+            "model_loaded": False,
             "candidates_considered": len(candidates_considered),
             "candidate_case_ids": [c.get("case_id") for c in candidates_considered],
             "top_examples": examples,
             "error": ret_error,
             "retrieval_seconds": _ret_seconds,
-            # Embedding breakdown, logged next to the embeddings:
-            # model load, query encode, docs encode, similarity.
+            # Retrieval timing, logged next to the similarity scores.
             # If retrieve_top_k was mocked in tests, this will be {}.
             "embedding": dict(_LAST_EMBEDDING_TIMING),
         }
@@ -603,8 +628,12 @@ def get_ai_recommendations(client, model, range_facts, eval_cases):
 
     _call2_start = time.time()
     data, error = _call_llm_json(
-        client, model, CALL_2_SYSTEM, CALL_2_USER.format(cases_json=json.dumps(cases_json))
-    ,reasoning_effort="minimal")
+        client,
+        model,
+        CALL_2_SYSTEM,
+        CALL_2_USER.format(cases_json=json.dumps(cases_json)),
+        reasoning_effort=CALL2_REASONING_EFFORT,
+    )
     call2_seconds = round(time.time() - _call2_start, 2)
 
     by_case = {}
@@ -902,8 +931,8 @@ def run_pipeline(report_text, session_cases=None):
         "model": model,
         "model_call1": model_call1,
         "model_call2": model,
-        "reasoning_call1": "minimal",
-        "reasoning_call2": "minimal",
+        "reasoning_call1": CALL1_REASONING_EFFORT,
+        "reasoning_call2": CALL2_REASONING_EFFORT or "medium (default)",
         "rule_version": 1,
         "latency_seconds": total_seconds,
         "stage_seconds": timings,
