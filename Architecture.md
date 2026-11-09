@@ -1,18 +1,37 @@
 # Architecture — Matchday Suspension Demo
 
-This is the full design document. The README is first contact: pitch, try it, decisions in summary, headline evaluation, cost and timing, limitations. This document is where every decision lives in full, with trade-offs, rejected alternatives, failure modes, and detailed evaluation. It does not duplicate the README story, and the README does not duplicate this argument.
+This is the full design document. The README is the summary: try it, decisions in summary, headline evaluation, cost and timing, limitations. This document is where every decision lives in full, with trade-offs, rejected alternatives, failure modes, and detailed evaluation.
 
-Where a decision was later superseded, this document states the current decision first and lists the superseded version in Appendix A, so a reader does not mistake an old test for current behaviour.
+This document is the source of truth for decisions. Where a decision was later superseded, this document states the current decision first and lists the superseded version in Appendix A, so a reader does not mistake an old test for current behaviour.
 
 Live demo: https://matchday-suspension-demo.onrender.com/
+
+Last reviewed: 2026-11-09. Author: Emmy.
+
+
+## Table of contents
+
+- [1. Context and scope](#1-context-and-scope)
+- [2. Invariants](#2-invariants)
+- [3. Quality goals, ranked](#3-quality-goals-ranked)
+- [4. Constraints](#4-constraints)
+- [5. Architecture](#5-architecture)
+- [6. Core workflow decisions](#6-core-workflow-decisions)
+- [7. Retrieval and learning decisions](#7-retrieval-and-learning-decisions)
+- [8. Evaluation](#8-evaluation)
+- [9. Speed, models, reasoning, cost, and latency](#9-speed-models-reasoning-cost-and-latency)
+- [10. Security, privacy, and guardrails](#10-security-privacy-and-guardrails)
+- [11. Prod gaps and roadmap, in priority order](#11-prod-gaps-and-roadmap-in-priority-order)
+- [12. Failure modes, tested and parked](#12-failure-modes-tested-and-parked)
+- [Appendix A. Superseded decisions, do not use as current](#appendix-a-superseded-decisions-do-not-use-as-current)
+- [Appendix B. Glossary](#appendix-b-glossary)
+- [Docs map](#docs-map)
 
 ## 1. Context and scope
 
 ### 1.1 Problem
 
-The full Matchday app automated PDF game reports and suspensions for a huge amateur soccer league in the United States: 1,000 teams, 300 to 500 games a weekend, 100 suspensions a week minimum. Before the app, suspensions were judged manually, from referee supplemental reports sent by email as PDFs, with the handbook consulted by hand for each act.
-
-In the full app, a referee report went from taking 45 minutes to about 8 minutes, league approval of a report took about 10 minutes, and a suspension went from about 3 hours to about 30 minutes. Those are full-app figures, not demo figures. Demo figures are in Section 9.
+The full Matchday app automated PDF game reports and suspensions for a huge amateur soccer league in the United States: 1,000 teams, 300 to 500 games a weekend, 100 suspensions a week minimum. Before the app, suspensions were approved manually, from referee supplemental reports sent by email as PDFs.
 
 This demo takes just the suspension part from that application. It shows how a deterministic workflow, with LLM calls inside it only, can read a free-text referee report, apply a handbook, ground a recommendation in precedent cases, and require a human decision, without pretending to be the whole app or a production system.
 
@@ -55,7 +74,7 @@ These are the rules the code must not break, often stated as absences. If a chan
 1. **Correctness under the handbook.** A wrong code, or a number outside the range, is a failure, even if the reason reads well. Clamp violations must be 0 by construction, tested, not claimed.
 2. **Human control that is real, not decorative.** The human must be able to see why, disagree, and change the outcome, and that change must be visible in the next similar case in the same session.
 3. **Explainability to a non-technical reviewer.** A referee reviewer, a league authority, or an interviewer must be able to follow report, code, handbook, precedents, draft, clamped proposal, human decision, in that order.
-4. **Demo speed.** A demo user will not wait 10 seconds for a first impression. Warm 5.71 seconds total was accepted. Cold start is parked, see Section 9.
+4. **Demo speed.** A demo user will not wait 10 seconds for a first impression. Speed around 5 seconds total was accepted.
 5. **Honesty about scope.** Synthetic, session-only, and deferred prod controls must be stated, not implied away.
 
 Non-goals, even though they would be reasonable goals in prod: prod accuracy claims, prod persistence, prod auth, prod bulk throughput, and a polished product UI. Those are listed as prod gaps, not as demo goals.
@@ -87,6 +106,18 @@ Human approver -- approves, or overrides with a reason
 Final decision (approved / overridden), Logs for last run only
 ```
 
+```mermaid
+flowchart TD
+    Report[Referee report - free text] --> App[Streamlit app]
+    App --> Handbook[Handbook - discipline.json]
+    App --> Cases[Preloaded cases - eval_cases.json]
+    App --> Pipeline[Pipeline]
+    Pipeline --> OpenAI[OpenAI API - Call 1, Call 2, embeddings]
+    Pipeline --> Human[Human approver]
+    Human --> Decision[Final decision - approved / overridden]
+    Decision --> Logs[Logs - last run only]
+```
+
 The user is a reviewer or a league authority in the demo. In prod, the user would be the designated authority, see Section 7.5. There is no other actor in the demo, no referee, no team, no external system writing to it.
 
 ### 5.2 Containers
@@ -97,6 +128,15 @@ The user is a reviewer or a league authority in the demo. In prod, the user woul
 - **Handbook (`discipline.json`):** seven rules, field `misconduct_code` used everywhere. See Section 6.3.
 - **Preloaded cases (`eval_cases.json`):** synthetic cases shipped in the repo, 49 cases in the repo, see Section 8. Session cases are added in memory only, never written to this file by the demo.
 - **OpenAI API:** LLM calls and embeddings, via the same `OPENAI_API_KEY` already set on Render, no new secret for embeddings.
+
+```mermaid
+flowchart LR
+    App[Streamlit app - app.py] --> Pipeline[Pipeline - pipeline.py]
+    Pipeline --> Prompts[Prompts - prompts.py]
+    Pipeline --> Handbook[Handbook - discipline.json]
+    Pipeline --> Cases[Preloaded cases - eval_cases.json]
+    Pipeline --> OpenAI[OpenAI API]
+```
 
 ### 5.3 Components and code map
 
@@ -119,6 +159,48 @@ The user is a reviewer or a league authority in the demo. In prod, the user woul
 8. Human approves, or overrides games and reason. Approve writes the approved row back into `last_result`, so Final JSON is not left as pending after approval. That was a bug, fixed November 3, see Section 12.
 9. The approved or overridden case becomes a session case, available for retrieval in that tab only, with a human-approved label and a session boost, see Section 7.4.
 10. Logs shows the last run only: timings, Call 1 and Call 2 token usage, retrieved top 3 with scores, and audit. A new run overwrites Logs. Logs is kept on purpose, it is evidence for a reviewer, not a temporary debug tab to delete in cleanup. A session-only accumulating history view was proposed and not built, and is not promised here.
+
+### 5.5 Data schemas
+
+`discipline.json` — the handbook. Top level: `version`, `source`, `rules`. Each rule:
+
+| Field | Example |
+|---|---|
+| `misconduct_code` | `VC` |
+| `description` | `VIOLENT CONDUCT` |
+| `min_games` | `2` |
+| `max_games` | `4` |
+| `handbook_section` | `14.7` |
+| `handbook_text` | `Violent Conduct: Headbutt, Elbow, Stamping, Biting, Striking, Kicking Opponent: 2-4 games.` |
+
+`eval_cases.json` — the synthetic preloaded set, 49 cases in the repo. Top level: `version`, `note`, `cases`. Each case:
+
+| Field | Example |
+|---|---|
+| `case_id` | `SYN-001` |
+| `section` | `Automatic - 2CT` |
+| `misconduct_code` | `2CT` |
+| `min_games` | `1` |
+| `max_games` | `1` |
+| `player_name` | `Alex Carter` |
+| `team_name` | `Riverside United` |
+| `minute` | `20` |
+| `report` | Free-text synthetic report |
+| `action` | Action blob, without the player name |
+| `expected_games` | `1` |
+| `expected_reason` | Human-approved reason for the expected games |
+
+### 5.6 Testing strategy
+
+Local tests only, in `test_pipeline.py`. Run with:
+
+```bash
+pytest test_pipeline.py
+```
+
+22 tests, pytest with plain asserts, OpenAI calls mocked. What they cover, from the test names in the file: player name stripped from the action but kept on the row; automatic branch never calls Call 2; range branch clamps to the handbook maximum; Call 2 failure falls back to the minimum; unknown code is warned, not silent; missing player, team, or minute raises a pipeline error; minute in the report text counts even if the LLM fact omits it; missing API key raises a pipeline error; approve records approved versus overridden; session cases are added and boosted over preloaded cases; case IDs are autoincremented in code, not from the LLM; Call 1 model comes from Secrets, not hard-coded; Call 1 prompt puts the report before the schema; Call 1 passes minimal reasoning.
+
+Connector harness scripts for live OpenAI calls exist locally only. They are not part of the demo app.
 
 ## 6. Core workflow decisions
 
@@ -296,7 +378,7 @@ With those two lines, no named verb pair, mixed session nano gave push chest 3 a
 
 - Gold standard is human final games plus final reason, not thumbs, not model self-score.
 - Eval cases serve both retrieval and testing in the demo, cold-start seeding. A real project would hold out a separate eval set. That must be stated, not hidden, and it is stated in the README.
-- Local eval file has 50 cases, SYN-001 to SYN-050. Repo canonical count is 49, one case was removed by Emmy on November 3, case not specified, do not chase 50. Preloaded tab summary counts are computed from the loaded list, never hard-coded, so 49 stays correct automatically. Until the repo file is checked against the local file, this document does not state a per-code distribution for the repo, because a frontend report on November 4 gave a distribution that does not match the local file, and that discrepancy is unresolved. See Section 12.
+- Repo eval file has 49 cases, SYN-001 to SYN-049. SYN-050 was removed by Emmy on November 3 — it was an OL discriminatory-language case, expected 2 games. Do not chase 50. The local file still has 50 cases, SYN-001 to SYN-050, and is out of sync with the repo. Preloaded tab summary counts are computed from the loaded list, never hard-coded, so 49 stays correct automatically. Until the repo file is checked against the local file, this document does not state a per-code distribution for the repo, because a frontend report on November 4 gave a distribution that does not match the local file, and that discrepancy is unresolved. See Section 12.
 - Offline eval, if run, should use a 1 to 5 score with a rubric, plus per-category results, not one headline accuracy. Live interface does not carry that score.
 - Gates that matter for this demo, in addition to headline accuracy: clamp violations equals 0, citation and precedent precision, abstention on no-evidence, that is, missing facts fail instead of guessing, and override rate and agreement, reported, not hidden.
 
