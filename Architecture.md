@@ -1,8 +1,8 @@
 # Architecture — Matchday Suspension Demo
 
-This is the full design document. The README is the summary: try it, decisions in summary, headline evaluation, cost and timing, limitations. This document is where every decision lives in full, with trade-offs, rejected alternatives, failure modes, and detailed evaluation.
+This is the full design document. The README is first contact: pitch, try it, decisions in summary, headline evaluation, cost and timing, limitations. This document is where every decision lives in full, with trade-offs, rejected alternatives, failure modes, and detailed evaluation. It does not duplicate the README story, and the README does not duplicate this argument.
 
-Source of truth for decisions. Where a decision in that file was later superseded, this document states the current decision first and lists the superseded version in Appendix A, so a reader does not mistake an old test for current behaviour.
+Where a decision was later superseded, this document states the current decision first and lists the superseded version in Appendix A, so a reader does not mistake an old test for current behaviour.
 
 Live demo: https://matchday-suspension-demo.onrender.com/
 
@@ -10,7 +10,9 @@ Live demo: https://matchday-suspension-demo.onrender.com/
 
 ### 1.1 Problem
 
-The full Matchday app automated PDF game reports and suspensions for a huge amateur soccer league in the United States: 1,000 teams, 300 to 500 games a weekend, 100 suspensions a week minimum. Before the app, suspensions were approved manually, from referee supplemental reports sent by email as PDFs.
+The full Matchday app automated PDF game reports and suspensions for a huge amateur soccer league in the United States: 1,000 teams, 300 to 500 games a weekend, 100 suspensions a week minimum. Before the app, suspensions were judged manually, from referee supplemental reports sent by email as PDFs, with the handbook consulted by hand for each act.
+
+In the full app, a referee report went from taking 45 minutes to about 8 minutes, league approval of a report took about 10 minutes, and a suspension went from about 3 hours to about 30 minutes. Those are full-app figures, not demo figures. Demo figures are in Section 9.
 
 This demo takes just the suspension part from that application. It shows how a deterministic workflow, with LLM calls inside it only, can read a free-text referee report, apply a handbook, ground a recommendation in precedent cases, and require a human decision, without pretending to be the whole app or a production system.
 
@@ -33,7 +35,7 @@ This demo takes just the suspension part from that application. It shows how a d
 
 ### 1.4 Readers
 
-- A reviewer who wants to understand the  before using the demo: start here, then try the demo.
+- A reviewer who wants to understand the design before judging the demo: start here, then try the demo.
 - A future maintainer who wants to change a decision: read the relevant decision section first, not just the code. If a shape looks arbitrary, it is probably a decision recorded here.
 - An interviewer: the README is the pitch, this document is the proof.
 
@@ -53,7 +55,7 @@ These are the rules the code must not break, often stated as absences. If a chan
 1. **Correctness under the handbook.** A wrong code, or a number outside the range, is a failure, even if the reason reads well. Clamp violations must be 0 by construction, tested, not claimed.
 2. **Human control that is real, not decorative.** The human must be able to see why, disagree, and change the outcome, and that change must be visible in the next similar case in the same session.
 3. **Explainability to a non-technical reviewer.** A referee reviewer, a league authority, or an interviewer must be able to follow report, code, handbook, precedents, draft, clamped proposal, human decision, in that order.
-4. **Demo speed.** A demo user will not wait 10 seconds for a first impression. Speed around 5 seconds total was accepted. 
+4. **Demo speed.** A demo user will not wait 10 seconds for a first impression. Warm 5.71 seconds total was accepted. Cold start is parked, see Section 9.
 5. **Honesty about scope.** Synthetic, session-only, and deferred prod controls must be stated, not implied away.
 
 Non-goals, even though they would be reasonable goals in prod: prod accuracy claims, prod persistence, prod auth, prod bulk throughput, and a polished product UI. Those are listed as prod gaps, not as demo goals.
@@ -294,7 +296,7 @@ With those two lines, no named verb pair, mixed session nano gave push chest 3 a
 
 - Gold standard is human final games plus final reason, not thumbs, not model self-score.
 - Eval cases serve both retrieval and testing in the demo, cold-start seeding. A real project would hold out a separate eval set. That must be stated, not hidden, and it is stated in the README.
-- Local eval file has 49 cases, SYN-001 to SYN-049. Repo canonical count is 49, one case was removed by Emmy on November 3, case not specified, do not chase 50. Preloaded tab summary counts are computed from the loaded list, never hard-coded, so 49 stays correct automatically. Until the repo file is checked against the local file, this document does not state a per-code distribution for the repo, because a frontend report on November 4 gave a distribution that does not match the local file, and that discrepancy is unresolved. See Section 12.
+- Local eval file has 50 cases, SYN-001 to SYN-050. Repo canonical count is 49, one case was removed by Emmy on November 3, case not specified, do not chase 50. Preloaded tab summary counts are computed from the loaded list, never hard-coded, so 49 stays correct automatically. Until the repo file is checked against the local file, this document does not state a per-code distribution for the repo, because a frontend report on November 4 gave a distribution that does not match the local file, and that discrepancy is unresolved. See Section 12.
 - Offline eval, if run, should use a 1 to 5 score with a rubric, plus per-category results, not one headline accuracy. Live interface does not carry that score.
 - Gates that matter for this demo, in addition to headline accuracy: clamp violations equals 0, citation and precedent precision, abstention on no-evidence, that is, missing facts fail instead of guessing, and override rate and agreement, reported, not hidden.
 
