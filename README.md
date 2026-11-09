@@ -95,7 +95,6 @@ eval_cases.json    — the synthetic preloaded set.
 prompts.py         — Call 1 and Call 2 prompts.
 test_pipeline.py   — local tests.
 requirements.txt   — openai and streamlit==1.66.1.
-render.yaml        — Render deployment config.
 README.md          — this file.
 ARCHITECTURE.md    — full design document.
 ```
@@ -260,7 +259,7 @@ You may use and try this demo to evaluate it. You may not copy, replicate, redis
 
 ## Author
 
-Built by Emmy.
+Built by Emmy Nonso
 
 ## Docs
 
