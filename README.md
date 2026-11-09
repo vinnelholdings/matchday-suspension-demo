@@ -1,10 +1,33 @@
 # Matchday Suspension Demo
 
+[![License: Evaluation only](https://img.shields.io/badge/License-Evaluation%20only-yellow.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![Live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://matchday-suspension-demo.onrender.com/)
+
 Live demo: https://matchday-suspension-demo.onrender.com/
 
 > **Demo only. Synthetic data only. Session-only. A human decision is required.**
 >
 > This is a public demo of the suspension workflow from Matchday, a league operations application. It is not the full application, not production, and not real data.
+
+## Table of contents
+
+- [What this is](#what-this-is)
+- [Try it](#try-it)
+- [Installation](#installation)
+- [How it works](#how-it-works)
+- [Handbook ranges](#handbook-ranges)
+- [Models and hosting](#models-and-hosting)
+- [Decisions](#decisions)
+- [Evaluation](#evaluation)
+- [Cost and timing](#cost-and-timing)
+- [Limitations and production gaps](#limitations-and-production-gaps)
+- [What this demo is not](#what-this-demo-is-not)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+- [Author](#author)
+- [Docs](#docs)
 
 ## What this is
 
@@ -29,6 +52,53 @@ Inspect the result: the handbook range, the retrieved precedents, and the Logs t
 Override the same act, run it again, override it again, and override it a third time. Watch what changes on the third override.
 
 One override is an exception. Three consistent overrides are a direction because k=3 and that segment's retrieval is now the human overrides.
+
+## Installation
+
+Prerequisites: Python 3.12, and an OpenAI API key.
+
+```bash
+git clone https://github.com/vinnelholdings/matchday-suspension-demo.git
+cd matchday-suspension-demo
+pip install -r requirements.txt
+```
+
+Set the environment variables below, then run:
+
+```bash
+streamlit run app.py
+```
+
+### Environment variables
+
+| Variable | Required | Notes |
+|---|---|---|
+| `OPENAI_API_KEY` | Yes | Set in the environment, or in Streamlit Secrets. |
+| `light_model` | No | Call 1. On Render, set to `gpt-5-nano`. Falls back to `full_model` if unset. |
+| `full_model` | No | Call 2. On Render, set to `gpt-5-nano`. |
+
+### Tests
+
+```bash
+pytest test_pipeline.py
+```
+
+`pytest` is required locally only. Do not add it to `requirements.txt`.
+
+### Files in this repo
+
+```
+app.py             — Streamlit frontend, adapted from the Matchday assignor suspensions page, with fines removed.
+pipeline.py        — deterministic workflow: Call 1, handbook branch, retrieval, Call 2, clamp, human approve / override.
+discipline.json    — the handbook.
+eval_cases.json    — the synthetic preloaded set.
+prompts.py         — Call 1 and Call 2 prompts.
+test_pipeline.py   — local tests.
+requirements.txt   — openai and streamlit==1.66.1.
+render.yaml        — Render deployment config.
+README.md          — this file.
+ARCHITECTURE.md    — full design document.
+```
 
 ## How it works
 
@@ -98,7 +168,7 @@ Full decisions, trade-offs, rejected alternatives, and failure modes are in [ARC
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Workflow | Deterministic workflow; LLM calls inside only | The sequence is fixed: read, classify, apply handbook, ground in precedent, get a human decision. There is no planning or tool choice for agents to do. Agents would add complexity without adding capability. |
+| Workflow | Deterministic workflow; LLM calls inside only | The sequence is fixed — read, classify, apply handbook, ground in precedent, get a human decision. There is no planning or tool choice for agents to do. Agents would add complexity without adding capability. |
 | Automatic vs range | Branch in code on handbook min == max | A fixed sanction is a handbook fact, not a judgement call. Automatic cases never reach Call 2. |
 | Retrieval | Same code, whole-action similarity, top 3 | Keeps precedents inside the same handbook range and retrieves on the act as a whole, not a shared word. |
 | Learning | Learning by repetition, with no prompt override and no code override | A single designated authority sets direction in production by curating the precedent set — removing or replacing cases encoding the old rule and seeding cases encoding the new rule — not by stacking weighted cases on top of old ones. A direction change is narrow and targeted (for example, a hair-pulling crackdown at 4 games for that act only), not a blanket change to all violent conduct. |
@@ -171,25 +241,26 @@ Production must quote exact words, because exact words are the severity signal. 
 - Not real data: all preloaded cases are synthetic.
 - Not a claim that a demo proves production accuracy.
 
-## Run it locally
+## Troubleshooting
 
-Requirements are `openai` and `streamlit==1.66.1`, in `requirements.txt`.
+- **First load is blank:** reload the page. This is the parked Render cold start, not a persistent deployment failure.
+- **A run is rejected:** the report must contain a player name, a team name, and a minute, or the run is rejected with a plain message listing what is missing.
+- **No API key:** the app needs `OPENAI_API_KEY` in the environment or in Streamlit Secrets. Without it, runs fail.
+- **Logs shows only the last run:** that is by design. Logs shows timings, retrieved top 3, and audit for the last run only.
 
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
+## Contributing
 
-Set `OPENAI_API_KEY` in the environment, or in Streamlit Secrets. On Render, both `light_model` and `full_model` are set to `gpt-5-nano`. The app also reads those from Streamlit Secrets if set, with the environment taking precedence in local code.
+This is a portfolio demo. No contributions are expected — please don't open PRs. Issues pointing out a bug are welcome.
 
-Files in this repo:
+## License
 
-- `app.py` — Streamlit frontend, adapted from the Matchday assignor suspensions page, with fines removed.
-- `pipeline.py` — deterministic workflow: Call 1, handbook branch, retrieval, Call 2, clamp, human approve / override.
-- `discipline.json` — the handbook.
-- `eval_cases.json` — the synthetic preloaded set.
-- `prompts.py` — Call 1 and Call 2 prompts.
-- `test_pipeline.py` — local tests.
+Evaluation only. See [LICENSE](LICENSE).
+
+You may use and try this demo to evaluate it. You may not copy, replicate, redistribute, or reuse it.
+
+## Author
+
+Built by Emmy.
 
 ## Docs
 
