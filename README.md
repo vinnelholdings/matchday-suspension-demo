@@ -98,7 +98,7 @@ Full decisions, trade-offs, rejected alternatives, and failure modes are in [ARC
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Workflow | Deterministic workflow; LLM calls inside only | The sequence is fixed — read, classify, apply handbook, ground in precedent, get a human decision. There is no planning or tool choice for agents to do. Agents would add complexity without adding capability. |
+| Workflow | Deterministic workflow; LLM calls inside only | The sequence is fixed: read, classify, apply handbook, ground in precedent, get a human decision. There is no planning or tool choice for agents to do. Agents would add complexity without adding capability. |
 | Automatic vs range | Branch in code on handbook min == max | A fixed sanction is a handbook fact, not a judgement call. Automatic cases never reach Call 2. |
 | Retrieval | Same code, whole-action similarity, top 3 | Keeps precedents inside the same handbook range and retrieves on the act as a whole, not a shared word. |
 | Learning | Learning by repetition, with no prompt override and no code override | A single designated authority sets direction in production by curating the precedent set — removing or replacing cases encoding the old rule and seeding cases encoding the new rule — not by stacking weighted cases on top of old ones. A direction change is narrow and targeted (for example, a hair-pulling crackdown at 4 games for that act only), not a blanket change to all violent conduct. |
