@@ -35,7 +35,7 @@ This demo takes just the suspension part from that application. It shows how a d
 
 ### 1.4 Readers
 
-- A reviewer who wants to understand the design before judging the demo: start here, then try the demo.
+- A reviewer who wants to understand the  before judging the demo: start here, then try the demo.
 - A future maintainer who wants to change a decision: read the relevant decision section first, not just the code. If a shape looks arbitrary, it is probably a decision recorded here.
 - An interviewer: the README is the pitch, this document is the proof.
 
@@ -296,7 +296,7 @@ With those two lines, no named verb pair, mixed session nano gave push chest 3 a
 
 - Gold standard is human final games plus final reason, not thumbs, not model self-score.
 - Eval cases serve both retrieval and testing in the demo, cold-start seeding. A real project would hold out a separate eval set. That must be stated, not hidden, and it is stated in the README.
-- Local eval file has 50 cases, SYN-001 to SYN-050, with a distribution recorded in DECISIONS.md item 14. Repo canonical count is 49, one case was removed by Emmy on November 3, case not specified, do not chase 50. Preloaded tab summary counts are computed from the loaded list, never hard-coded, so 49 stays correct automatically. Until the repo file is checked against the local file, this document does not state a per-code distribution for the repo, because a frontend report on November 4 gave a distribution that does not match the local file, and that discrepancy is unresolved. See Section 12.
+- Local eval file has 49 cases, SYN-001 to SYN-049. Repo canonical count is 49, one case was removed by Emmy on November 3, case not specified, do not chase 50. Preloaded tab summary counts are computed from the loaded list, never hard-coded, so 49 stays correct automatically. Until the repo file is checked against the local file, this document does not state a per-code distribution for the repo, because a frontend report on November 4 gave a distribution that does not match the local file, and that discrepancy is unresolved. See Section 12.
 - Offline eval, if run, should use a 1 to 5 score with a rubric, plus per-category results, not one headline accuracy. Live interface does not carry that score.
 - Gates that matter for this demo, in addition to headline accuracy: clamp violations equals 0, citation and precedent precision, abstention on no-evidence, that is, missing facts fail instead of guessing, and override rate and agreement, reported, not hidden.
 
@@ -509,4 +509,3 @@ P2, product surface:
 
 - README: pitch, try it, architecture summary, decisions summary, headline evaluation, cost and timing, limitations.
 - This ARCHITECTURE.md: full architecture, full decisions, full evaluation, failure modes, security and privacy, prod roadmap, superseded decisions.
-- `DECISIONS.md`: capture source, in the local folder, not a repo doc. Do not treat chat history as the capture source.
