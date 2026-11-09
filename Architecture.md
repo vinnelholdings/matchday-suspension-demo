@@ -10,9 +10,7 @@ Live demo: https://matchday-suspension-demo.onrender.com/
 
 ### 1.1 Problem
 
-The full Matchday app automated PDF game reports and suspensions for a huge amateur soccer league in the United States: 1,000 teams, 300 to 500 games a weekend, 100 suspensions a week minimum. Before the app, suspensions were judged manually, from referee supplemental reports sent by email as PDFs, with the handbook consulted by hand for each act.
-
-In the full app, a referee report went from taking 45 minutes to about 8 minutes, league approval of a report took about 10 minutes, and a suspension went from about 3 hours to about 30 minutes. Those are full-app figures, not demo figures. Demo figures are in Section 9.
+The full Matchday app automated PDF game reports and suspensions for a huge amateur soccer league in the United States: 1,000 teams, 300 to 500 games a weekend, 100 suspensions a week minimum. Before the app, suspensions were approved manually, from referee supplemental reports sent by email as PDFs.
 
 This demo takes just the suspension part from that application. It shows how a deterministic workflow, with LLM calls inside it only, can read a free-text referee report, apply a handbook, ground a recommendation in precedent cases, and require a human decision, without pretending to be the whole app or a production system.
 
@@ -35,7 +33,7 @@ This demo takes just the suspension part from that application. It shows how a d
 
 ### 1.4 Readers
 
-- A reviewer who wants to understand the  before judging the demo: start here, then try the demo.
+- A reviewer who wants to understand the  before using the demo: start here, then try the demo.
 - A future maintainer who wants to change a decision: read the relevant decision section first, not just the code. If a shape looks arbitrary, it is probably a decision recorded here.
 - An interviewer: the README is the pitch, this document is the proof.
 
@@ -55,7 +53,7 @@ These are the rules the code must not break, often stated as absences. If a chan
 1. **Correctness under the handbook.** A wrong code, or a number outside the range, is a failure, even if the reason reads well. Clamp violations must be 0 by construction, tested, not claimed.
 2. **Human control that is real, not decorative.** The human must be able to see why, disagree, and change the outcome, and that change must be visible in the next similar case in the same session.
 3. **Explainability to a non-technical reviewer.** A referee reviewer, a league authority, or an interviewer must be able to follow report, code, handbook, precedents, draft, clamped proposal, human decision, in that order.
-4. **Demo speed.** A demo user will not wait 10 seconds for a first impression. Warm 5.71 seconds total was accepted. Cold start is parked, see Section 9.
+4. **Demo speed.** A demo user will not wait 10 seconds for a first impression. Speed around 5 seconds total was accepted. 
 5. **Honesty about scope.** Synthetic, session-only, and deferred prod controls must be stated, not implied away.
 
 Non-goals, even though they would be reasonable goals in prod: prod accuracy claims, prod persistence, prod auth, prod bulk throughput, and a polished product UI. Those are listed as prod gaps, not as demo goals.
