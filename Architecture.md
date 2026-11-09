@@ -88,35 +88,60 @@ Non-goals, even though they would be reasonable goals in prod: prod accuracy cla
 
 ## 5. Architecture
 
-### 5.1 Context diagram
+### 5.1 Decision tree
 
 ```
-Referee report (free text)
-        |
-        v
-[ Streamlit app ] -- handbook (discipline.json)
-        |           -- preloaded cases (eval_cases.json, 49 in repo)
-        v
-[ Pipeline ] -- OpenAI API (Call 1, Call 2, embeddings)
-        |
-        v
-Human approver -- approves, or overrides with a reason
-        |
-        v
-Final decision (approved / overridden), Logs for last run only
+Read report
+└── Missing facts? (player, team, minute)
+    ├── Yes → Reject, list what is missing
+    └── No → Call 1: classify and extract code + action
+        └── Handbook min == max?
+            ├── Yes → Automatic
+            │   ├── Games = min (= max), template reason
+            │   ├── Source: Set by the rulebook
+            │   ├── No retrieval, no Call 2
+            │   └── Human: approve or override
+            │       ├── Approve → Final: rulebook games, approved
+            │       └── Override → Final: human games + reason
+            └── No → Range
+                ├── Retrieval: top 3, same code first
+                └── Call 2: action alone + top 3
+                    ├── Succeeds → Clamp to [min, max]
+                    │   ├── Source: Suggested by AI
+                    │   └── Human: approve or override
+                    │       ├── Approve → Final: AI games, approved
+                    │       └── Override → Final: human games + reason
+                    └── Fails → Fallback to min
+                        ├── Source: Rulebook minimum
+                        └── Human: approve or override
+                            ├── Approve → Final: minimum games, approved
+                            └── Override → Final: human games + reason
 ```
+
 
 ```mermaid
 flowchart TD
-    Report[Referee report - free text] --> App[Streamlit app]
-    App --> Handbook[Handbook - discipline.json]
-    App --> Cases[Preloaded cases - eval_cases.json]
-    App --> Pipeline[Pipeline]
-    Pipeline --> OpenAI[OpenAI API - Call 1, Call 2, embeddings]
-    Pipeline --> Human[Human approver]
-    Human --> Decision[Final decision - approved / overridden]
-    Decision --> Logs[Logs - last run only]
+    Report[Read report] --> Missing{Missing facts?}
+    Missing -- Yes --> Reject[Reject - list what is missing]
+    Missing -- No --> Call1[Call 1 - classify and extract]
+    Call1 --> Branch{Handbook min == max?}
+    Branch -- Yes --> Auto[Automatic - Set by the rulebook, template reason, no retrieval, no Call 2]
+    Auto --> HumanAuto{Approve or override?}
+    HumanAuto -- Approve --> FinalAutoA[Final - rulebook games, approved]
+    HumanAuto -- Override --> FinalAutoO[Final - human games + reason]
+    Branch -- No --> Retrieval[Retrieval - top 3, same code first]
+    Retrieval --> Call2[Call 2 - action alone + top 3]
+    Call2 --> Call2Ok{Call 2 succeeds?}
+    Call2Ok -- Yes --> Clamp[Clamp to min-max - Suggested by AI]
+    Clamp --> HumanRange{Approve or override?}
+    HumanRange -- Approve --> FinalRangeA[Final - AI games, approved]
+    HumanRange -- Override --> FinalRangeO[Final - human games + reason]
+    Call2Ok -- No --> Fallback[Fallback to min - Rulebook minimum]
+    Fallback --> HumanFallback{Approve or override?}
+    HumanFallback -- Approve --> FinalFallbackA[Final - minimum games, approved]
+    HumanFallback -- Override --> FinalFallbackO[Final - human games + reason]
 ```
+
 
 The user is a reviewer or a league authority in the demo. In prod, the user would be the designated authority, see Section 7.5. There is no other actor in the demo, no referee, no team, no external system writing to it.
 
