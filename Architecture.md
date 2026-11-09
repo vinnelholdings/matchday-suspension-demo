@@ -2,7 +2,7 @@
 
 This is the full design document. The README is the summary: try it, decisions in summary, headline evaluation, cost and timing, limitations. This document is where every decision lives in full, with trade-offs, rejected alternatives, failure modes, and detailed evaluation.
 
-Source of truth for decisions, in chat and code, was `DECISIONS.md`. Where a decision in that file was later superseded, this document states the current decision first and lists the superseded version in Appendix A, so a reader does not mistake an old test for current behaviour.
+Source of truth for decisions. Where a decision in that file was later superseded, this document states the current decision first and lists the superseded version in Appendix A, so a reader does not mistake an old test for current behaviour.
 
 Live demo: https://matchday-suspension-demo.onrender.com/
 
