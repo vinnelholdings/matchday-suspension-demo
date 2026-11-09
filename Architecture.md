@@ -6,7 +6,7 @@ This document is the source of truth for decisions. Where a decision was later s
 
 Live demo: https://matchday-suspension-demo.onrender.com/
 
-Last reviewed: 2026-11-09. Author: Emmy.
+Last reviewed: 2026-11-09. Author: Emmy Nonso.
 
 
 ## Table of contents
