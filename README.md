@@ -250,7 +250,7 @@ Production must quote exact words, because exact words are the severity signal. 
 
 ## Contributing
 
-This is a portfolio demo. No contributions are expected — please don't open PRs. Issues pointing out a bug are welcome.
+This is a portfolio demo. No contributions are expected, please don't open PRs. Issues pointing out a bug are welcome.
 
 ## License
 
